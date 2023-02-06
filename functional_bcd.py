@@ -22,6 +22,8 @@ import scipy.sparse.linalg as ssl
 import tqdm
 from gurobipy import *
 
+from route import Route
+
 
 # BCD params
 class BCDParams(object):
@@ -115,7 +117,7 @@ def show_log_header():
     print("*" * lt)
 
 
-def optimize(bcdpar: BCDParams, mat_dict: Dict):
+def optimize(bcdpar: BCDParams, mat_dict: Dict, route:Route):
     """
 
     Args:
@@ -166,9 +168,7 @@ def optimize(bcdpar: BCDParams, mat_dict: Dict):
                      + rho * Ak.T @ _nonnegative(_Ax - b + lbd / rho) \
                      + (0.5 - xk[idx]) / tau
                 # save to price
-                block.vectorize_update_arc_multiplier(_c.flatten() - _c.min())
-                # compute shortest path
-                _x = block.vectorize_shortest_path().reshape(_c.shape)
+                route.solve(idx, method=)
                 # accept or not
                 _v_sp = (_c.T @ _x).trace()
                 if _v_sp > 0:
