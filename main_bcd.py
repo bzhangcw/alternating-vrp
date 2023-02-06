@@ -28,4 +28,4 @@ if __name__ == '__main__':
 
     # scipy.io.savemat(f"ttp_{params_sys.train_size}_{params_sys.station_size}_{params_sys.time_span}.mat", mat_dict,
     #         do_compression=True)
-    optimize(bcdpar=params_bcd, mat_dict=mat_dict)
+    optimize(bcdpar=params_bcd, block_data=mat_dict)

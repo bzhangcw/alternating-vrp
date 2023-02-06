@@ -28,6 +28,8 @@ class VRP:
 
         assert self.p in self.V
         assert len(self.V_0) + 1 == len(self.V)
+        for i, j in E:
+            assert i != j
 
         # model
         self.m = None
@@ -92,6 +94,7 @@ class VRP:
     def init(self, get_block_data=False):
         self.add_vars()
         self.add_constrs()
+
         def _matrix_size(_size):
             m, n = _size
 
@@ -101,6 +104,7 @@ class VRP:
                 return f"{x:.1e}"
 
             return f"[{_format_dit(m)}, {_format_dit(n)}]"
+
         if get_block_data:
             self.m.update()
 
@@ -112,8 +116,9 @@ class VRP:
             coup_indice = [c.index for c in self.coup.values()]
 
             self.block_data["A"] = []  # couple A
+            self.block_data["b"] = np.ones((len(self.V) - 1, 1))
             self.block_data["B"] = []  # sub A
-            self.block_data["b"] = []  # sub b
+            self.block_data["q"] = []  # sub b
             self.block_data["c"] = []  # demand
             self.block_data["C"] = []  # capacity
             self.block_data["d"] = []  # obj coeff
@@ -128,7 +133,7 @@ class VRP:
 
                 self.block_data["A"].append(A_j[coup_indice, :])
                 self.block_data["B"].append(A_j[sub_indice, :])
-                self.block_data["b"].append(b[sub_indice])
+                self.block_data["q"].append(b[sub_indice])
                 self.block_data["c"].append(A_j[capa_indice, :])
                 self.block_data["C"].append(b[capa_indice])
                 self.block_data["d"].append(c_j)
@@ -145,9 +150,9 @@ class VRP:
             assert n_constrs == A.shape[0] + (len(self.J) - 1) * len(self.coup)
 
             # M, T matrix in time-window constraint
-            # [a, b] is the time window
+            # [l, u] is the time window
             self.block_data['M'], self.block_data['T'], \
-            self.block_data['a'], self.block_data['b'] \
+            self.block_data['l'], self.block_data['u'] \
                 = self.get_window_matvec()
 
             df = pd.DataFrame.from_records(logs)
@@ -166,8 +171,8 @@ class VRP:
             self.m.optimize()
 
     def get_window_matvec(self):
-        M = np.zeros((len(E), len(V)))
-        T = np.zeros(len(E))
+        M = np.zeros((len(self.E), len(self.V)))
+        T = np.zeros(len(self.E))
         index = 0
         for s, t in self.E:
             ind_s, ind_t = self.V.index(s), self.V.index(t)

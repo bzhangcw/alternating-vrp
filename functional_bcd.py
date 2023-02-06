@@ -50,6 +50,8 @@ class BCDParams(object):
         self.itermax = 10000
         self.linmax = 10
 
+        self.parse_environ()
+
     def parse_environ(self):
         import os
         self.primal_heuristic_method = os.environ.get('primal', None)
@@ -117,30 +119,49 @@ def show_log_header():
     print("*" * lt)
 
 
-def optimize(bcdpar: BCDParams, mat_dict: Dict, route:Route):
+def optimize(bcdpar: BCDParams, block_data: Dict, route: Route):
     """
 
     Args:
         bcdpar: BCDParam
-        mat_dict:  matlab dict storing bcd-styled block vrp instance
-
+        block_data:  matlab dict storing bcd-styled block vrp instance
+            self.block_data["A"] = []  # couple A
+            self.block_data["b"] = np.ones((len(V) - 1, 1))
+            self.block_data["B"] = []  # sub A
+            self.block_data["q"] = []  # sub b
+            self.block_data["c"] = []  # demand
+            self.block_data["C"] = []  # capacity
+            self.block_data["d"] = []  # obj coeff
+    Note:
+        % basic model:
+            self.block_data["B"] = []  # sub A
+            self.block_data["q"] = []  # sub b
+        % capacity:
+            self.block_data["c"] = []  # demand
+            self.block_data["C"] = []  # capacity
+        % time window:
+            self.block_data['M'], self.block_data['T'],
+            self.block_data['a'], self.block_data['b']
     Returns:
 
     """
     # data
     start = time.time()
-    blocks = mat_dict['blocks']
-    b = mat_dict['b']
-    m, _ = b.shape
-    A = scipy.sparse.hstack([blk['A'] for idx, blk in enumerate(blocks)])
+    A, b, B, q = block_data['A'], block_data['b'], block_data['B'], block_data['q']
+    c, C, d = block_data['c'], block_data['C'], block_data['d']
+    M, T, l, u = block_data['M'], block_data['T'], block_data['l'], block_data['u']
+    # query model size
+    A1 = A[0]
+    m, n = A1.shape
+    nblock = len(A)
     Anorm = 20  # scipy.sparse.linalg.norm(A) / 10
 
     # alias
     rho = 1e-2
     tau = 1 / (Anorm ** 2 * rho)
     sigma = 2
-    xk = [np.ones((blk['n'], 1)) for idx, blk in enumerate(blocks)]
-    lbd = rho * np.ones(b.shape)
+    xk = [np.ones((n, 1)) for _ in A]
+    lbd = rho * np.ones((m, 1))
     # logger
 
     show_log_header()
@@ -150,25 +171,24 @@ def optimize(bcdpar: BCDParams, mat_dict: Dict, route:Route):
     # - idx: 1-n block idx
     #       it may not be the block no
     # A_k x_k
-    _vAx = {idx: blk['A'] @ xk[idx] for idx, blk in enumerate(blocks)}
+    _vAx = {idx: _A @ xk[idx] for idx, _A in enumerate(A)}
     # c_k x_k
-    _vcx = {idx: (blk['c'].T @ xk[idx]).trace() for idx, blk in enumerate(blocks)}
+    _vcx = {idx: (_c @ xk[idx]).trace() for idx, _c in enumerate(c)}
     # x_k - x_k* (fixed point error)
-    _eps_fix_point = {idx: 0 for idx, blk in enumerate(blocks)}
+    _eps_fix_point = {idx: 0 for idx, _ in enumerate(A)}
     for k in range(bcdpar.itermax):
         for it in range(bcdpar.linmax):
             # idx: A[idx]@x[idx]
-            for idx, blk in enumerate(blocks):
-                block_no = blk['idx']
-                block = blk.get('block', None)
+            for idx in range(nblock):
                 # update gradient
-                Ak = blk['A']
+                Ak = A[idx]
                 _Ax = sum(_vAx.values())
-                _c = blk['c'] \
+                _c = c[idx].T \
                      + rho * Ak.T @ _nonnegative(_Ax - b + lbd / rho) \
                      + (0.5 - xk[idx]) / tau
                 # save to price
-                route.solve(idx, method=)
+                _x = route.solve_primal_by_mip(np.array(_c).flatten())
+                # _x = np.ones((n, 1))
                 # accept or not
                 _v_sp = (_c.T @ _x).trace()
                 if _v_sp > 0:
@@ -180,7 +200,7 @@ def optimize(bcdpar: BCDParams, mat_dict: Dict, route:Route):
                 # update this block
                 xk[idx] = _x
                 _vAx[idx] = Ak @ _x
-                _vcx[idx] = _cx = (blk['c'].T @ _x).trace()
+                _vcx[idx] = _cx = (c[idx] @ _x).trace()
 
             # fixed-point eps
             if sum(_eps_fix_point.values()) < 1e-4:
@@ -204,3 +224,5 @@ def optimize(bcdpar: BCDParams, mat_dict: Dict, route:Route):
         lbd = _nonnegative((_Ax - b) * rho + lbd)
 
         bcdpar.iter += 1
+
+    return xk
