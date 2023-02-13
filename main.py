@@ -1,5 +1,6 @@
 from vrp import *
 from itertools import combinations
+import io_solomon
 from functional_bcd import *
 
 
@@ -49,11 +50,17 @@ def create_toy_instance():
     return vrp
 
 
+def read_solomon(fp="dataset/data/SolomonDataset_v2/r101-25"):
+    V, E, J, c, C, d, l, u, T = io_solomon.data_loader(fp)
+    vrp = VRP(V, E, J, c, C, d, l, u, T)
+    return vrp
+
+
 if __name__ == "__main__":
 
     # create vrp instance
     # vrp = create_toy_instance()
-    vrp = create_toy_instance()
+    vrp = read_solomon()
     vrp.create_model()
     vrp.init(get_block_data=True)
     print(len(vrp.block_data))

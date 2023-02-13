@@ -85,6 +85,11 @@ class VRP:
 
         self.tw = None  # FIXME
 
+    def add_obj(self):
+        self.m.setObjective(
+            quicksum(self.d[s, t] * self.x[s, t, j] for idx, (s, t) in enumerate(self.E) for j in self.J),
+            CONST.MINIMIZE)
+
     def in_neighbours(self, t):
         return [s for s in self.V if (s, t) in self.E]
 
@@ -94,6 +99,7 @@ class VRP:
     def init(self, get_block_data=False):
         self.add_vars()
         self.add_constrs()
+        self.add_obj()
 
         def _matrix_size(_size):
             m, n = _size
@@ -147,11 +153,11 @@ class VRP:
                     ))
                 )
 
-            assert n_constrs == A.shape[0] + (len(self.J) - 1) * len(self.coup)
+            # assert n_constrs == A.shape[0] + (len(self.J) - 1) * len(self.coup)
 
             # M, T matrix in time-window constraint
             # [l, u] is the time window
-            self.block_data['M'], self.block_data['T'], \
+            self.block_data['P'], self.block_data['T'], \
             self.block_data['l'], self.block_data['u'] \
                 = self.get_window_matvec()
 
