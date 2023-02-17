@@ -96,7 +96,7 @@ def g_ReadInputData(path):
     ADMM_local_upperbound = [0] * g_number_of_ADMM_iterations
 
     # read nodes information
-    book = xlrd.open_workbook(path + "/input_node.xlsx")  # todo: turn into csv file
+    book = xlrd.open_workbook(path + "/input_node.xls")  # todo: turn into csv file
     sh = book.sheet_by_index(0)
     # set the original node
     node = Node()

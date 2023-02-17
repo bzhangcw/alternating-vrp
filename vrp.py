@@ -119,6 +119,7 @@ class VRP:
             c = np.array(self.m.getAttr("Obj", self.m.getVars()))
 
             var_indice = [[v.index for v in self.x.select('*', '*', j)] for j in self.J]
+            var_ind_name_map = {j: {v.index: v.varName for v in self.x.select('*', '*', j)} for j in self.J}
             coup_indice = [c.index for c in self.coup.values()]
 
             self.block_data["A"] = []  # couple A
@@ -128,6 +129,8 @@ class VRP:
             self.block_data["c"] = []  # demand
             self.block_data["C"] = []  # capacity
             self.block_data["d"] = []  # obj coeff
+            self.block_data["ind"] = var_ind_name_map
+            self.block_data["V"] = self.V
             logs = []
             n_constrs = 0
             for j in self.J:

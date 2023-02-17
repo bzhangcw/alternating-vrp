@@ -21,6 +21,7 @@ import scipy
 import scipy.sparse.linalg as ssl
 import tqdm
 from gurobipy import *
+import networkx as nx
 
 from route import Route
 
@@ -118,6 +119,148 @@ def _Ax(block, x):
     return block['A'] @ x
 
 
+def has_conflict(j, s_j, i, s_i, var_map):
+    city_j = set()
+    city_i = set()
+
+    x_j = np.fromstring(s_j)
+    y_i = np.fromstring(s_i)
+
+    for s in range(len(x_j)):
+        if x_j[s] > 0.5:
+            var_name = var_map[j][s]
+            city_j.union(get_cities(var_name))
+
+    for s in range(len(y_i)):
+        if y_i[s] > 0.5:
+            var_name = var_map[i][s]
+            city_j.union(get_cities(var_name))
+
+    return len(city_j.intersection(city_i)) > 0
+
+
+def get_cities(var_name):
+    assert var_name.startswith("x")
+    return var_name[2:].split("]")[0].split(",")[:2]
+
+
+def detect_conflict(G, _s, idx, block_nodes, var_map):
+    for node in block_nodes[idx]:
+        if node == _s:
+            continue
+        G.add_edge(_s, node)
+
+    for i in range(len(block_nodes)):
+        if i == idx:
+            continue
+        for node in block_nodes[i]:
+            if has_conflict(idx, _s, i, np.fromstring(node), var_map):
+                G.add_edge(_s, node)
+
+
+def mis_heur(G: nx.Graph, xk, params, c):
+    nblock, A, b, k, n, d = params
+    circs = nx.maximal_independent_set(G)
+    # circs = nx.algorithms.approximation.max_independent_set(G)
+    print("MIS Heur: num of feas vehicle = {}".format(len(circs)))
+
+    # A_k x_k
+    _vAx = {idx: _A @ xk[idx] for idx, _A in enumerate(A)}
+    _vBx = {idx: 0 for idx, _A in enumerate(A)}  # violation of capacity
+    _vWx = {idx: 0 for idx, _A in enumerate(A)}  # violation of time-window
+    # c_k x_k
+    _vcx = {idx: (_c @ xk[idx]).trace() for idx, _c in enumerate(c)}  # original obj
+    _vcxl = {idx: (_c @ xk[idx]).trace() for idx, _c in enumerate(c)}  # lagrangian obj for each block
+    # x_k - x_k* (fixed point error)
+    _eps_fix_point = {idx: 0 for idx, _ in enumerate(A)}
+    for idx in range(nblock):
+        Ak = A[idx]
+        _x = xk[idx]
+        ############################################
+        # summarize
+        ############################################
+        #
+        _eps_fix_point[idx] = np.linalg.norm(xk[idx] - _x)
+
+        # update this block
+        xk[idx] = _x
+        _vAx[idx] = Ak @ _x
+        _vcx[idx] = _cx = d[idx] @ _x.flatten()
+        # calculate violation of capacity if relaxed
+    _heur_time = time.time()
+    xk = [np.fromstring(_circ, dtype=np.float64).reshape((n, 1)) for _circ in circs]
+    _vAx = {idx: _A @ xk[idx] for idx, _A in enumerate(A)}
+    _Ax = sum(_vAx.values())
+
+    eps_pfeas = \
+        np.linalg.norm(_Ax - b, np.inf) \
+        + sum(_vBx.values()) \
+        + sum(np.linalg.norm(_, np.inf) for _ in _vWx.values())
+    cx = sum(_vcx.values())
+
+    eps_fp = sum(_eps_fix_point.values())
+    _log_line = "{:03d} {:.1e} {:+.2e} {:+.2e} {:+.3e} {:+.3e} {:+.3e} {:.2e} {:04d}H".format(
+        k, 0, cx, 0, eps_pfeas, eps_fp, 0, 0, 0
+    )
+    print(_log_line)
+
+
+def convert_xk_vec(xk, var_map, N):
+    x = np.zeros(N)
+    indice = np.where(xk.reshape((N, N - 1)) == 1)
+
+    cities = indice[0].tolist()
+    cities2 = indice[1].tolist()
+    for i in cities + cities2:
+        x[i] = 1
+
+    return x
+
+
+def set_par_heur(list_xk, c, var_map, N):
+    m = Model("heur")
+    m.setParam("LogToConsole", 0)
+    x = tupledict()
+    circs = tupledict()
+
+    select_constrs = tupledict()
+    for idx in range(len(list_xk)):
+        for i in range(len(list_xk[idx])):
+            x[idx, i] = m.addVar(vtype=GRB.BINARY)
+
+            _x = list_xk[idx][i]
+            circs[idx, i] = convert_xk_vec(_x, var_map, N)
+
+        f_ps = x.select(idx, '*')
+
+        if len(f_ps) > 0:
+            select_constrs[idx] = m.addConstr(quicksum(f_ps) == 1, name=f"One[{idx}]")
+        else:
+            print("no circ for train:", idx)
+
+    Exprs = [0] * N
+    partition_constrs = tupledict()
+    for j in range(N):
+        Exprs[j] = quicksum(circs[idx, i][j] * x[idx, i] for idx in range(len(list_xk)) for i in range(len(list_xk[idx])))
+        partition_constrs[j] = m.addConstr(Exprs[j] == 1)
+
+    m.setObjective(quicksum(c[idx][i] * x[idx, i] for idx in range(len(list_xk)) for i in range(len(list_xk[idx]))))
+    m.optimize()
+
+    if m.status == GRB.INFEASIBLE:
+        print("can't find feasible solution!")
+        m.remove(partition_constrs)
+        m.remove(select_constrs)
+
+        for idx in range(len(list_xk)):
+            m.addConstr(x.sum(idx, '*') <= 1, name=f"One[{idx}]")
+        for j in range(N):
+            partition_constrs[j] = m.addConstr(Exprs[j] <= 1)
+        m.setObjective(quicksum(Exprs), sense=GRB.MAXIMIZE)
+        m.optimize()
+        print("maximum coverage: ", m.objval / N, f"with {x.sum('*', '*').getValue()} cars")
+
+
 @np.vectorize
 def _nonnegative(x):
     return max(x, 0)
@@ -177,6 +320,21 @@ def optimize(bcdpar: BCDParams, block_data: Dict, route: Route):
     P, T, l, u = block_data['P'], block_data['T'], block_data['l'], block_data['u']
     M = 1e3  # todo => block_data['M']
     q = - T.reshape((-1, 1)) + M
+    var_map = dict()
+    for k, v in block_data['ind'].items():
+        var_map[k] = dict()
+        start = min(v.keys())
+        for j, val in v.items():
+            var_map[k][j - start] = val
+    V = block_data["V"]
+    N = len(V)
+    block_nodes = [[] for _ in A]
+    for j in range(len(A)):
+        ks = list(var_map[j].keys())
+        assert all(ks[i] <= ks[i+1] for i in range(len(ks) - 1))
+    list_xk = [[] for _ in A]
+
+    G = nx.Graph()
 
     # query model size
     A1 = A[0]
@@ -296,15 +454,16 @@ def optimize(bcdpar: BCDParams, block_data: Dict, route: Route):
                 else:
                     _vWx[idx] = np.zeros_like(theta[idx])
 
+                # save circle
+                _s = _x.tostring()
+                list_xk[idx].append(_x)
+                block_nodes[idx].append(_s)
+                G.add_node(_s)
+                detect_conflict(G, _s, idx, block_nodes, var_map)
+
             # fixed-point eps
             if sum(_eps_fix_point.values()) < 1e-4:
                 break
-
-        ############################################
-        # primal update: some heuristic
-        ############################################
-        # todo for PSW
-        # ADD A PRIMAL METHOD FOR FEASIBLE SOLUTION
 
         _iter_time = time.time() - start
         _Ax = sum(_vAx.values())
@@ -323,6 +482,14 @@ def optimize(bcdpar: BCDParams, block_data: Dict, route: Route):
         print(_log_line)
         if eps_pfeas == 0 and eps_fp < 1e-4:
             break
+
+        ############################################
+        # primal update: some heuristic
+        ############################################
+        # todo for PSW
+        # ADD A PRIMAL METHOD FOR FEASIBLE SOLUTION
+        # mis_heur(G, xk, (nblock, A, b, k, n, d), c)
+        set_par_heur(list_xk, d, var_map, N)
 
         ############################################
         # update dual variables
