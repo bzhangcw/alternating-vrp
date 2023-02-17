@@ -20,7 +20,8 @@ class Route:
         self.m.setParam("LogToConsole", 0)
 
     def add_vars(self):
-        self.x = self.m.addVars(((s, t) for s, t in self.vrp.E), vtype=GRB.BINARY, name="x")
+        V = self.vrp.V
+        self.x = self.m.addVars(((s, t) for s in V for t in V if s != t), vtype=GRB.BINARY, name="x")
 
         self.m._vars = self.x
 
