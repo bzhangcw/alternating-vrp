@@ -188,7 +188,7 @@ def g_ReadInputData(path):
     c = [-1] * len(V)
     for node in g_node_list:
         node_id: int = node.node_id
-        c[node_id] = -node.base_profit_for_searching
+        c[node_id] = node.demand
     C = g_agent_list[0].capacity
     d = {(link.from_node_id, link.to_node_id): link.distance for link in g_link_list}
     l = [-1e9] * len(V)

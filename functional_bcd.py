@@ -13,6 +13,7 @@ functional interface module for bcd
 % - indefinite proximal BCD which includes an extrapolation step.
 % - restart utilities
 """
+import argparse
 import functools
 from typing import Dict
 import time
@@ -37,7 +38,9 @@ class Dual(IntEnum):
     ProxLinear = 0  # binding only
     ProxLinearCapacity = 1  # binding + capacity
     ProxLinearCapacityTW = 2  # binding + capacity + TW
-    NonlinearProxLinearCapacityTW = 3  # binding + capacity + TW, but we use bilinear TW constraint
+    NonlinearProxLinearCapacityTW = (
+        3  # binding + capacity + TW, but we use bilinear TW constraint
+    )
 
 
 class DualSubproblem(IntEnum):
@@ -50,16 +53,43 @@ class DualSubproblem(IntEnum):
 ALGORITHM_TYPE = {
     # solve proximal linear sub-problem
     # relax capacity and time-window
-    "prox-I": (
-        Dual.ProxLinearCapacity, DualSubproblem.Route, Primal.Null
-    ),
-    "prox-II": (
-        Dual.ProxLinearCapacityTW, DualSubproblem.Route, Primal.Null
-    )
+    "prox-I": (Dual.ProxLinearCapacity, DualSubproblem.Route, Primal.Null),
+    "prox-II": (Dual.ProxLinearCapacityTW, DualSubproblem.Route, Primal.Null),
+    "prox-III": (Dual.ProxLinear, DualSubproblem.CapaRoute, Primal.Null),
 }
 
 
 class BCDParams(object):
+    parser = argparse.ArgumentParser(
+        "Alternating Method for VRP",
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+    )
+    parser.add_argument(
+        "--method",
+        type=str,
+        default="prox-I",
+        choices=[*list(ALGORITHM_TYPE.keys())],
+        help="""
+        Choose algorithm
+        """
+    )
+    parser.add_argument(
+        "--dual_linearize_max",
+        type=int,
+        default=10,
+        help="""
+            maximum inner iteration (linearization)
+        """
+    )
+
+    parser.add_argument(
+        "--iter_max",
+        type=int,
+        default=200,
+        help="""
+                maximum inner iteration (linearization)
+            """
+    )
 
     def __init__(self):
         self.kappa = 0.2
@@ -80,17 +110,20 @@ class BCDParams(object):
         self.max_number = 1
         self.norms = ([], [], [])
         self.multipliers = ([], [], [])
-        self.itermax = 10000
+        self.iter_max = 10000
         self.dual_linearize_max = 10
         self.dual_linearize = True
-
+        self.args = None
         self.parse_environ()
 
     def parse_environ(self):
         import os
-
-        self.dual_update, self.dual_method, self.primal_method \
-            = ALGORITHM_TYPE[os.environ.get('method', "prox-I")]
+        self.args = self.parser.parse_args()
+        self.dual_update, self.dual_method, self.primal_method = ALGORITHM_TYPE[
+            self.args.method
+        ]
+        self.dual_linearize_max = self.args.dual_linearize_max
+        self.iter_max = self.args.iter_max
 
     def update_bound(self, lb):
         if lb >= self.lb:
@@ -116,7 +149,7 @@ class BCDParams(object):
 
 
 def _Ax(block, x):
-    return block['A'] @ x
+    return block["A"] @ x
 
 
 def has_conflict(j, s_j, i, s_i, var_map):
@@ -170,7 +203,9 @@ def mis_heur(G: nx.Graph, xk, params, c):
     _vWx = {idx: 0 for idx, _A in enumerate(A)}  # violation of time-window
     # c_k x_k
     _vcx = {idx: (_c @ xk[idx]).trace() for idx, _c in enumerate(c)}  # original obj
-    _vcxl = {idx: (_c @ xk[idx]).trace() for idx, _c in enumerate(c)}  # lagrangian obj for each block
+    _vcxl = {
+        idx: (_c @ xk[idx]).trace() for idx, _c in enumerate(c)
+    }  # lagrangian obj for each block
     # x_k - x_k* (fixed point error)
     _eps_fix_point = {idx: 0 for idx, _ in enumerate(A)}
     for idx in range(nblock):
@@ -192,15 +227,18 @@ def mis_heur(G: nx.Graph, xk, params, c):
     _vAx = {idx: _A @ xk[idx] for idx, _A in enumerate(A)}
     _Ax = sum(_vAx.values())
 
-    eps_pfeas = \
-        np.linalg.norm(_Ax - b, np.inf) \
-        + sum(_vBx.values()) \
-        + sum(np.linalg.norm(_, np.inf) for _ in _vWx.values())
+    eps_pfeas = (
+            np.linalg.norm(_Ax - b, np.inf)
+            + sum(_vBx.values())
+            + sum(np.linalg.norm(_, np.inf) for _ in _vWx.values())
+    )
     cx = sum(_vcx.values())
 
     eps_fp = sum(_eps_fix_point.values())
-    _log_line = "{:03d} {:.1e} {:+.2e} {:+.2e} {:+.3e} {:+.3e} {:+.3e} {:.2e} {:04d}H".format(
-        k, 0, cx, 0, eps_pfeas, eps_fp, 0, 0, 0
+    _log_line = (
+        "{:03d} {:.1e} {:+.2e} {:+.2e} {:+.3e} {:+.3e} {:+.3e} {:.2e} {:04d}H".format(
+            k, 0, cx, 0, eps_pfeas, eps_fp, 0, 0, 0
+        )
     )
     print(_log_line)
 
@@ -231,7 +269,7 @@ def set_par_heur(list_xk, c, var_map, N):
             _x = list_xk[idx][i]
             circs[idx, i] = convert_xk_vec(_x, var_map, N)
 
-        f_ps = x.select(idx, '*')
+        f_ps = x.select(idx, "*")
 
         if len(f_ps) > 0:
             select_constrs[idx] = m.addConstr(quicksum(f_ps) == 1, name=f"One[{idx}]")
@@ -241,10 +279,20 @@ def set_par_heur(list_xk, c, var_map, N):
     Exprs = [0] * N
     partition_constrs = tupledict()
     for j in range(N):
-        Exprs[j] = quicksum(circs[idx, i][j] * x[idx, i] for idx in range(len(list_xk)) for i in range(len(list_xk[idx])))
+        Exprs[j] = quicksum(
+            circs[idx, i][j] * x[idx, i]
+            for idx in range(len(list_xk))
+            for i in range(len(list_xk[idx]))
+        )
         partition_constrs[j] = m.addConstr(Exprs[j] == 1)
 
-    m.setObjective(quicksum(c[idx][i] * x[idx, i] for idx in range(len(list_xk)) for i in range(len(list_xk[idx]))))
+    m.setObjective(
+        quicksum(
+            c[idx][i] * x[idx, i]
+            for idx in range(len(list_xk))
+            for i in range(len(list_xk[idx]))
+        )
+    )
     m.optimize()
 
     if m.status == GRB.INFEASIBLE:
@@ -253,12 +301,16 @@ def set_par_heur(list_xk, c, var_map, N):
         m.remove(select_constrs)
 
         for idx in range(len(list_xk)):
-            m.addConstr(x.sum(idx, '*') <= 1, name=f"One[{idx}]")
+            m.addConstr(x.sum(idx, "*") <= 1, name=f"One[{idx}]")
         for j in range(N):
             partition_constrs[j] = m.addConstr(Exprs[j] <= 1)
         m.setObjective(quicksum(Exprs), sense=GRB.MAXIMIZE)
         m.optimize()
-        print("maximum coverage: ", m.objval / N, f"with {x.sum('*', '*').getValue()} cars")
+        print(
+            "maximum coverage: ",
+            m.objval / N,
+            f"with {x.sum('*', '*').getValue()} cars",
+        )
 
 
 @np.vectorize
@@ -268,7 +320,17 @@ def _nonnegative(x):
 
 def show_log_header(bcdpar: BCDParams):
     headers = ["k", "t", "c'x", "lobj", "|Ax - b|", "error", "rho", "tau", "iter"]
-    slots = ["{:^3s}", "{:^7s}", "{:^9s}", "{:^9s}", "{:^10s}", "{:^10s}", "{:^9s}", "{:^9s}", "{:4s}"]
+    slots = [
+        "{:^3s}",
+        "{:^7s}",
+        "{:^9s}",
+        "{:^9s}",
+        "{:^10s}",
+        "{:^10s}",
+        "{:^9s}",
+        "{:^9s}",
+        "{:4s}",
+    ]
     _log_header = " ".join(slots).format(*headers)
     lt = _log_header.__len__()
     print("*" * lt)
@@ -315,13 +377,13 @@ def optimize(bcdpar: BCDParams, block_data: Dict, route: Route):
     """
     # data
     start = time.time()
-    A, b, B, q = block_data['A'], block_data['b'], block_data['B'], block_data['q']
-    c, C, d = block_data['c'], block_data['C'], block_data['d']
-    P, T, l, u = block_data['P'], block_data['T'], block_data['l'], block_data['u']
+    A, b, B, q = block_data["A"], block_data["b"], block_data["B"], block_data["q"]
+    c, C, d = block_data["c"], block_data["C"], block_data["d"]
+    P, T, l, u = block_data["P"], block_data["T"], block_data["l"], block_data["u"]
     M = 1e3  # todo => block_data['M']
-    q = - T.reshape((-1, 1)) + M
+    q = -T.reshape((-1, 1)) + M
     var_map = dict()
-    for k, v in block_data['ind'].items():
+    for k, v in block_data["ind"].items():
         var_map[k] = dict()
         start = min(v.keys())
         for j, val in v.items():
@@ -331,7 +393,7 @@ def optimize(bcdpar: BCDParams, block_data: Dict, route: Route):
     block_nodes = [[] for _ in A]
     for j in range(len(A)):
         ks = list(var_map[j].keys())
-        assert all(ks[i] <= ks[i+1] for i in range(len(ks) - 1))
+        assert all(ks[i] <= ks[i + 1] for i in range(len(ks) - 1))
     list_xk = [[] for _ in A]
 
     G = nx.Graph()
@@ -370,16 +432,21 @@ def optimize(bcdpar: BCDParams, block_data: Dict, route: Route):
     _vWx = {idx: 0 for idx, _A in enumerate(A)}  # violation of time-window
     # c_k x_k
     _vcx = {idx: (_c @ xk[idx]).trace() for idx, _c in enumerate(c)}  # original obj
-    _vcxl = {idx: (_c @ xk[idx]).trace() for idx, _c in enumerate(c)}  # lagrangian obj for each block
+    _vcxl = {
+        idx: (_c @ xk[idx]).trace() for idx, _c in enumerate(c)
+    }  # lagrangian obj for each block
     # x_k - x_k* (fixed point error)
     _eps_fix_point = {idx: 0 for idx, _ in enumerate(A)}
 
-    for k in range(bcdpar.itermax):
+    for k in range(bcdpar.iter_max):
         ############################################
         # dual update (BCD/ALM/ADMM)
         ############################################
         # update auxilliary `w` time window if relaxed
-        if bcdpar.dual_update in {Dual.ProxLinearCapacityTW, Dual.NonlinearProxLinearCapacityTW}:
+        if bcdpar.dual_update in {
+            Dual.ProxLinearCapacityTW,
+            Dual.NonlinearProxLinearCapacityTW,
+        }:
             for idx in range(nblock):
                 wk[idx] = _w = _proj(xk[idx], theta[idx])
 
@@ -396,17 +463,37 @@ def optimize(bcdpar: BCDParams, block_data: Dict, route: Route):
                 # create dual cost
                 ############################################
                 if bcdpar.dual_update == Dual.ProxLinear:
-                    _d = d[idx].reshape((-1, 1)) + Ak.T @ lbd + rho * Ak.T @ (_Ax - b) \
-                         + (-xk[idx] / tau + 0.5 / tau)
+                    _d = (
+                            d[idx].reshape((-1, 1))
+                            + Ak.T @ lbd
+                            + rho * Ak.T @ (_Ax - b)
+                            + (-xk[idx] / tau + 0.5 / tau)
+                    )
                 elif bcdpar.dual_update == Dual.ProxLinearCapacity:
-                    _d = d[idx].reshape((-1, 1)) + Ak.T @ lbd + rho * Ak.T @ (_Ax - b) \
-                         + rho * (c[idx] @ _nonnegative(xk[idx] - C[idx][0] + mu[idx] / rho)).trace() \
-                         + (-xk[idx] / tau + 0.5 / tau)
+                    _d = (
+                            d[idx].reshape((-1, 1))
+                            + Ak.T @ lbd
+                            + rho * Ak.T @ (_Ax - b)
+                            + rho
+                            * (
+                                    c[idx] @ _nonnegative(xk[idx] - C[idx][0] + mu[idx] / rho)
+                            ).trace()
+                            + (-xk[idx] / tau + 0.5 / tau)
+                    )
                 elif bcdpar.dual_update == Dual.ProxLinearCapacityTW:
-                    _d = d[idx].reshape((-1, 1)) + Ak.T @ lbd + rho * Ak.T @ (_Ax - b) \
-                         + rho * (c[idx] @ _nonnegative(xk[idx] - C[idx][0] + mu[idx] / rho)).trace() \
-                         + rho * M * _nonnegative(P @ wk[idx] + M * xk[idx] - q + theta[idx] / rho) \
-                         + (-xk[idx] / tau + 0.5 / tau)
+                    _d = (
+                            d[idx].reshape((-1, 1))
+                            + Ak.T @ lbd
+                            + rho * Ak.T @ (_Ax - b)
+                            + rho
+                            * (
+                                    c[idx] @ _nonnegative(xk[idx] - C[idx][0] + mu[idx] / rho)
+                            ).trace()
+                            + rho
+                            * M
+                            * _nonnegative(P @ wk[idx] + M * xk[idx] - q + theta[idx] / rho)
+                            + (-xk[idx] / tau + 0.5 / tau)
+                    )
                 elif bcdpar.dual_update == Dual.NonlinearProxLinearCapacityTW:
                     # todo for WR
                     # add update for nonlinear (bilinear timewindow)
@@ -417,10 +504,10 @@ def optimize(bcdpar: BCDParams, block_data: Dict, route: Route):
                 # solve dual subproblem
                 ############################################
                 if bcdpar.dual_method == DualSubproblem.Route:
-                    _x = route.solve_primal_by_mip(_d.flatten())
+                    _x = route.solve_primal_by_mip(_d.flatten(), mode=0)
                 elif bcdpar.dual_method == DualSubproblem.CapaRoute:
                     # _x = route.solve_primal_by_mip(_d.flatten())
-                    raise ValueError("not implemented")
+                    _x = route.solve_primal_by_mip(_d.flatten(), mode=1)
                 elif bcdpar.dual_method == DualSubproblem.CapaWindowRoute:
                     # IN THIS MODE, YOU ALSO HAVE w,
                     # otherwise, you update in the after bcd for x
@@ -449,17 +536,21 @@ def optimize(bcdpar: BCDParams, block_data: Dict, route: Route):
                 else:
                     _vBx[idx] = _nonnegative((c[idx] @ _x).trace() - C[idx][0])
                 # calculate violation of time window if relaxed
-                if bcdpar.dual_update in {Dual.ProxLinearCapacityTW, Dual.NonlinearProxLinearCapacityTW}:
+                if bcdpar.dual_update in {
+                    Dual.ProxLinearCapacityTW,
+                    Dual.NonlinearProxLinearCapacityTW,
+                }:
                     _vWx[idx] = _nonnegative(P @ wk[idx] + M * xk[idx] - q)
                 else:
                     _vWx[idx] = np.zeros_like(theta[idx])
 
                 # save circle
-                _s = _x.tostring()
-                list_xk[idx].append(_x)
-                block_nodes[idx].append(_s)
-                G.add_node(_s)
-                detect_conflict(G, _s, idx, block_nodes, var_map)
+                if bcdpar.primal_method not in {Primal.Null}:
+                    _s = _x.tostring()
+                    list_xk[idx].append(_x)
+                    block_nodes[idx].append(_s)
+                    G.add_node(_s)
+                    detect_conflict(G, _s, idx, block_nodes, var_map)
 
             # fixed-point eps
             if sum(_eps_fix_point.values()) < 1e-4:
@@ -468,10 +559,11 @@ def optimize(bcdpar: BCDParams, block_data: Dict, route: Route):
         _iter_time = time.time() - start
         _Ax = sum(_vAx.values())
 
-        eps_pfeas = \
-            np.linalg.norm(_Ax - b, np.inf) \
-            + sum(_vBx.values()) \
-            + sum(np.linalg.norm(_, np.inf) for _ in _vWx.values())
+        eps_pfeas = (
+                np.linalg.norm(_Ax - b, np.inf)
+                + sum(_vBx.values())
+                + sum(np.linalg.norm(_, np.inf) for _ in _vWx.values())
+        )
         cx = sum(_vcx.values())
         # todo for WR, how to calculate lower bound?
         lobj = sum(_vcxl.values()) + (lbd.T @ (_Ax - b)).trace()
@@ -488,8 +580,9 @@ def optimize(bcdpar: BCDParams, block_data: Dict, route: Route):
         ############################################
         # todo for PSW
         # ADD A PRIMAL METHOD FOR FEASIBLE SOLUTION
-        # mis_heur(G, xk, (nblock, A, b, k, n, d), c)
-        set_par_heur(list_xk, d, var_map, N)
+        if bcdpar.primal_method not in {Primal.Null}:
+            # mis_heur(G, xk, (nblock, A, b, k, n, d), c)
+            set_par_heur(list_xk, d, var_map, N)
 
         ############################################
         # update dual variables
@@ -497,8 +590,10 @@ def optimize(bcdpar: BCDParams, block_data: Dict, route: Route):
         rho *= sigma
         lbd += rho * (_Ax - b)
         for idx in range(nblock):
-            mu[idx] = _nonnegative(((c[idx] @ _x).trace() - C[idx][0]) * rho + mu[idx])
-            theta[idx] = _nonnegative((P @ wk[idx] + M * xk[idx] - q) * rho + theta[idx])
+            mu[idx] = _nonnegative(((c[idx] @ xk[idx]).trace() - C[idx][0]) * rho + mu[idx])
+            theta[idx] = _nonnegative(
+                (P @ wk[idx] + M * xk[idx] - q) * rho + theta[idx]
+            )
 
         bcdpar.iter += 1
 

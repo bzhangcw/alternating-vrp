@@ -4,7 +4,6 @@ from itertools import combinations
 
 
 class Route:
-
     def __init__(self, vrp: VRP):
         self.vrp = vrp
         self.bool_mip_built = False
@@ -21,21 +20,28 @@ class Route:
 
     def add_vars(self):
         V = self.vrp.V
-        self.x = self.m.addVars(((s, t) for s in V for t in V if s != t), vtype=GRB.BINARY, name="x")
+        self.x = self.m.addVars(
+            ((s, t) for s in V for t in V if s != t), vtype=GRB.BINARY, name="x"
+        )
 
         self.m._vars = self.x
 
     def add_constrs(self, mode=0):
 
         vrp = self.vrp
-        self.depot = self.m.addConstr(quicksum(self.x[vrp.p, t] for t in vrp.V_0 if (vrp.p, t) in vrp.E) == 1,
-                                      name="depot")
+        self.depot = self.m.addConstr(
+            quicksum(self.x[vrp.p, t] for t in vrp.V_0 if (vrp.p, t) in vrp.E) == 1,
+            name="depot",
+        )
 
-        self.flow = self.m.addConstrs((quicksum(self.x[s, t] for s in vrp.in_neighbours(t) if s != t)
-                                       ==
-                                       quicksum(self.x[t, s] for s in vrp.out_neighbours(t) if s != t)
-                                       for t in vrp.V),
-                                      **name_prefix("flow"))
+        self.flow = self.m.addConstrs(
+            (
+                quicksum(self.x[s, t] for s in vrp.in_neighbours(t) if s != t)
+                == quicksum(self.x[t, s] for s in vrp.out_neighbours(t) if s != t)
+                for t in vrp.V
+            ),
+            **name_prefix("flow")
+        )
 
         self.tw = None  # FIXME
         if mode == 0:
@@ -43,18 +49,30 @@ class Route:
             pass
         elif mode == 1:
             # solve capacitated route
-            self.capa = self.m.addConstrs((quicksum(
-                vrp.c[t] * self.x[s, t] for s in vrp.V for t in vrp.out_neighbours(s) if s != t and t != vrp.p)
-                                           <=
-                                           vrp.C),
-                                          **name_prefix("capa"))
+            self.capa = self.m.addConstr(
+                (
+                    quicksum(
+                        vrp.c[t] * self.x[s, t]
+                        for s in vrp.V
+                        for t in vrp.out_neighbours(s)
+                        if s != t and t != vrp.p
+                    )
+                    <= vrp.C
+                ),
+            )
         elif mode == 2:
-            # solve capacitated route
-            vrp.capa = vrp.m.addConstrs((quicksum(
-                vrp.c[t] * vrp.x[s, t] for s in vrp.V for t in vrp.out_neighbours(s) if s != t and t != vrp.p)
-                                         <=
-                                         vrp.C),
-                                        **name_prefix("capa"))
+            # solve capacitated route with TW
+            vrp.capa = vrp.m.addConstr(
+                (
+                    quicksum(
+                        vrp.c[t] * vrp.x[s, t]
+                        for s in vrp.V
+                        for t in vrp.out_neighbours(s)
+                        if s != t and t != vrp.p
+                    )
+                    <= vrp.C
+                ),
+            )
             # todo, time window
         else:
             raise ValueError("unknown mode")
@@ -76,24 +94,32 @@ class Route:
             self.add_vars()
             self.add_constrs(mode)
 
-        self.m.setObjective(quicksum(c[idx] * self.x[s, t] for idx, (s, t) in enumerate(self.vrp.E)), GRB.MINIMIZE)
+        self.m.setObjective(
+            quicksum(c[idx] * self.x[s, t] for idx, (s, t) in enumerate(self.vrp.E)),
+            GRB.MINIMIZE,
+        )
         self.m.Params.lazyConstraints = 1
         self.m.optimize(lambda model, where: self.subtourelim(model, where))
-        return np.array([v for k, v in self.m.getAttr("x", self.x).items()]).reshape((-1, 1))
+        return np.array([v for k, v in self.m.getAttr("x", self.x).items()]).reshape(
+            (-1, 1)
+        )
 
     # Callback - use lazy constraints to eliminate sub-tours
     def subtourelim(self, model, where):
         if where == GRB.Callback.MIPSOL:
             # make a list of edges selected in the solution
             vals = model.cbGetSolution(model._vars)
-            selected = tuplelist((i, j) for i, j in model._vars.keys()
-                                 if vals[i, j] > 0.5)
+            selected = tuplelist(
+                (i, j) for i, j in model._vars.keys() if vals[i, j] > 0.5
+            )
             # find the shortest cycle in the selected edge list
             tour = self.subtour(selected)
             if len(tour) < len(self.vrp.V):
                 # add subtour elimination constr. for every pair of cities in subtour
-                model.cbLazy(quicksum(model._vars[i, j] for i, j in combinations(tour, 2))
-                             <= len(tour) - 1)
+                model.cbLazy(
+                    quicksum(model._vars[i, j] for i, j in combinations(tour, 2))
+                    <= len(tour) - 1
+                )
 
     # Given a tuplelist of edges, find the shortest subtour
 
@@ -108,8 +134,7 @@ class Route:
                 current = neighbors[0]
                 thiscycle.append(current)
                 unvisited.remove(current)
-                neighbors = [j for i, j in edges.select(current, '*')
-                             if j in unvisited]
+                neighbors = [j for i, j in edges.select(current, "*") if j in unvisited]
             if len(thiscycle) <= len(cycle):
                 cycle = thiscycle  # New shortest subtour
         return cycle
@@ -118,25 +143,26 @@ class Route:
 if __name__ == "__main__":
     import json
 
-    capitals_json = json.load(open('capitals.json'))
+    capitals_json = json.load(open("capitals.json"))
     capitals = []
     coordinates = {}
     for state in capitals_json:
-        if state not in ['AK', 'HI']:
-            capital = capitals_json[state]['capital']
+        if state not in ["AK", "HI"]:
+            capital = capitals_json[state]["capital"]
             capitals.append(capital)
-            coordinates[capital] = (float(capitals_json[state]['lat']), float(capitals_json[state]['long']))
+            coordinates[capital] = (
+                float(capitals_json[state]["lat"]),
+                float(capitals_json[state]["long"]),
+            )
     capital_map = {c: i for i, c in enumerate(capitals)}
     coordinates = {capital_map[c]: coordinates[c] for c in capitals}
     capitals = range(len(capitals))
-
 
     def distance(city1, city2):
         c1 = coordinates[city1]
         c2 = coordinates[city2]
         diff = (c1[0] - c2[0], c1[1] - c2[1])
         return math.sqrt(diff[0] * diff[0] + diff[1] * diff[1])
-
 
     dist = {(c1, c2): distance(c1, c2) for c1, c2 in combinations(capitals, 2)}
 
