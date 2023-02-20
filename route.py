@@ -1,6 +1,7 @@
 from vrp import *
 from gurobipy import *
 from itertools import combinations
+from util import subtourelim
 
 
 class Route:
@@ -99,45 +100,10 @@ class Route:
             GRB.MINIMIZE,
         )
         self.m.Params.lazyConstraints = 1
-        self.m.optimize(lambda model, where: self.subtourelim(model, where))
+        self.m.optimize(lambda model, where: subtourelim(self.vrp.V, model, where))
         return np.array([v for k, v in self.m.getAttr("x", self.x).items()]).reshape(
             (-1, 1)
         )
-
-    # Callback - use lazy constraints to eliminate sub-tours
-    def subtourelim(self, model, where):
-        if where == GRB.Callback.MIPSOL:
-            # make a list of edges selected in the solution
-            vals = model.cbGetSolution(model._vars)
-            selected = tuplelist(
-                (i, j) for i, j in model._vars.keys() if vals[i, j] > 0.5
-            )
-            # find the shortest cycle in the selected edge list
-            tour = self.subtour(selected)
-            if len(tour) < len(self.vrp.V):
-                # add subtour elimination constr. for every pair of cities in subtour
-                model.cbLazy(
-                    quicksum(model._vars[i, j] for i, j in combinations(tour, 2))
-                    <= len(tour) - 1
-                )
-
-    # Given a tuplelist of edges, find the shortest subtour
-
-    def subtour(self, edges):
-        V = list(set([i for i, j in edges] + [j for i, j in edges]))
-        unvisited = V[:]
-        cycle = V[:]  # Dummy - guaranteed to be replaced
-        while unvisited:  # true if list is non-empty
-            thiscycle = []
-            neighbors = unvisited
-            while neighbors:
-                current = neighbors[0]
-                thiscycle.append(current)
-                unvisited.remove(current)
-                neighbors = [j for i, j in edges.select(current, "*") if j in unvisited]
-            if len(thiscycle) <= len(cycle):
-                cycle = thiscycle  # New shortest subtour
-        return cycle
 
 
 if __name__ == "__main__":

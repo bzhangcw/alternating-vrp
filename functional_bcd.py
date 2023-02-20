@@ -28,9 +28,13 @@ from route import Route
 
 from enum import IntEnum
 
+from seq_heur import seq_heur
+from vrp import VRP
+
 
 class Primal(IntEnum):
     Null = 0  # there is no primal algorithm
+    SetPar = 1  # set partitioning
 
 
 class Dual(IntEnum):
@@ -106,7 +110,7 @@ class BCDParams(object):
         self.gap = 1
         self.dual_method = 0
         self.dual_update = 0
-        self.primal_method = 0
+        self.primal_method = 1
         self.max_number = 1
         self.norms = ([], [], [])
         self.multipliers = ([], [], [])
@@ -319,9 +323,11 @@ def _nonnegative(x):
 
 
 def show_log_header(bcdpar: BCDParams):
-    headers = ["k", "t", "c'x", "lobj", "|Ax - b|", "error", "rho", "tau", "iter"]
+    headers = ["k", "t", "heur", "UB", "c'x", "lobj", "|Ax - b|", "error", "rho", "tau", "iter"]
     slots = [
         "{:^3s}",
+        "{:^7s}",
+        "{:^5s}",
         "{:^7s}",
         "{:^9s}",
         "{:^9s}",
@@ -349,7 +355,7 @@ def show_log_header(bcdpar: BCDParams):
     print("*" * lt)
 
 
-def optimize(bcdpar: BCDParams, block_data: Dict, route: Route):
+def optimize(bcdpar: BCDParams, vrp: VRP, route: Route):
     """
 
     Args:
@@ -377,6 +383,7 @@ def optimize(bcdpar: BCDParams, block_data: Dict, route: Route):
     """
     # data
     start = time.time()
+    block_data = vrp.block_data
     A, b, B, q = block_data["A"], block_data["b"], block_data["B"], block_data["q"]
     c, C, d = block_data["c"], block_data["C"], block_data["d"]
     P, T, l, u = block_data["P"], block_data["T"], block_data["l"], block_data["u"]
@@ -437,6 +444,8 @@ def optimize(bcdpar: BCDParams, block_data: Dict, route: Route):
     }  # lagrangian obj for each block
     # x_k - x_k* (fixed point error)
     _eps_fix_point = {idx: 0 for idx, _ in enumerate(A)}
+
+    ub_bst = np.inf
 
     for k in range(bcdpar.iter_max):
         ############################################
@@ -560,29 +569,38 @@ def optimize(bcdpar: BCDParams, block_data: Dict, route: Route):
         _Ax = sum(_vAx.values())
 
         eps_pfeas = (
-                np.linalg.norm(_Ax - b, np.inf)
+                np.linalg.norm(_Ax - b, 1)
                 + sum(_vBx.values())
-                + sum(np.linalg.norm(_, np.inf) for _ in _vWx.values())
+                + sum(np.linalg.norm(_, 1) for _ in _vWx.values())
         )
         cx = sum(_vcx.values())
-        # todo for WR, how to calculate lower bound?
-        lobj = sum(_vcxl.values()) + (lbd.T @ (_Ax - b)).trace()
-        eps_fp = sum(_eps_fix_point.values())
-        _log_line = "{:03d} {:.1e} {:+.2e} {:+.2e} {:+.3e} {:+.3e} {:+.3e} {:.2e} {:04d}".format(
-            k, _iter_time, cx, lobj, eps_pfeas, eps_fp, rho, tau, it + 1
-        )
-        print(_log_line)
-        if eps_pfeas == 0 and eps_fp < 1e-4:
-            break
 
         ############################################
         # primal update: some heuristic
         ############################################
         # todo for PSW
         # ADD A PRIMAL METHOD FOR FEASIBLE SOLUTION
+        bcdpar.primal_method = 1
+
+        ub_flag = ""
         if bcdpar.primal_method not in {Primal.Null}:
             # mis_heur(G, xk, (nblock, A, b, k, n, d), c)
-            set_par_heur(list_xk, d, var_map, N)
+            # set_par_heur(list_xk, d, var_map, N)
+            ub_seq = seq_heur(vrp, c, xk)
+            if ub_seq < np.inf:
+                ub_flag += "S"
+
+            ub_bst = min(ub_bst, ub_seq)
+
+        # todo for WR, how to calculate lower bound?
+        lobj = sum(_vcxl.values()) + (lbd.T @ (_Ax - b)).trace()
+        eps_fp = sum(_eps_fix_point.values())
+        _log_line = "{:03d} {:.1e}  {:s}   {:+.2e} {:+.2e} {:+.2e} {:+.3e} {:+.3e} {:+.3e} {:.2e} {:04d}".format(
+            k, _iter_time, ub_flag, ub_bst, cx, lobj, eps_pfeas, eps_fp, rho, tau, it + 1
+        )
+        print(_log_line)
+        if eps_pfeas == 0 and eps_fp < 1e-4:
+            break
 
         ############################################
         # update dual variables

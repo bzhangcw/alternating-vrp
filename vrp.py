@@ -1,8 +1,10 @@
+from itertools import permutations
+
 solver_name = "gurobi"
 if solver_name == "copt":
-    from coptpy import Envr, quicksum, COPT as CONST
+    from coptpy import Envr, quicksum, COPT as CONST, tuplelist
 else:
-    from gurobipy import Model, quicksum, GRB as CONST
+    from gurobipy import Model, quicksum, GRB as CONST, tuplelist
 import numpy as np
 import pandas as pd
 from scipy import sparse
@@ -56,6 +58,7 @@ class VRP:
 
     def add_vars(self):
         self.x = self.m.addVars([(s, t, j) for j in self.J for s, t in self.E], vtype=CONST.BINARY, **name_prefix("x"))
+        self.m._vars = self.x
 
     def add_constrs(self):
         self.coup = self.m.addConstrs(
@@ -100,6 +103,7 @@ class VRP:
         self.add_vars()
         self.add_constrs()
         self.add_obj()
+        self.no_obj_heur()
 
         def _matrix_size(_size):
             m, n = _size
@@ -173,11 +177,14 @@ class VRP:
             print(("|{:^" + f"{lines[0].__len__() - 2}" + "}|").format("showing first 10 blocks"))
             print("\n".join(lines[0:23]))
 
-    def solve(self):
+    def solve(self, callback=True):
         if solver_name == "copt":
             self.m.solve()
         else:
-            self.m.optimize()
+            if callback:
+                self.m.optimize(lambda model, where: self.subtourelim(model, where))
+            else:
+                self.m.optimize()
 
     def get_window_matvec(self):
         M = np.zeros((len(self.E), len(self.V)))
@@ -190,6 +197,52 @@ class VRP:
             T[index] = self.T[s, t]
             index += 1
         return M, T, self.a, self.b
+
+    def no_obj_heur(self):
+        self.m.Params.lazyConstraints = 1
+        self.m.Params.SolutionLimit = 1
+        self.m.optimize(lambda model, where: self.subtourelim(model, where))
+
+    def subtourelim(self, model, where):
+        if where == CONST.Callback.MIPSOL:
+            # make a list of edges selected in the solution
+            vals = model.cbGetSolution(model._vars)
+
+            for j0 in self.J:
+                V = set()
+                selected = tuplelist(
+                    (s, t) for s, t, j in model._vars.keys() if j == j0 and vals[s, t, j] > 0.5
+                )
+                for s, t in selected:
+                    V.add(s)
+                    V.add(t)
+
+                # find the shortest cycle in the selected edge list
+                tour = self.subtour(selected)
+                if len(tour) < len(V):
+                    # add subtour elimination constr. for every pair of cities in subtour
+                    model.cbLazy(
+                        quicksum(model._vars[s, t, j0] for s, t in permutations(set(tour), 2))
+                        <= len(set(tour)) - 1
+                    )
+
+    # Given a tuplelist of edges, find the shortest subtour
+
+    def subtour(self, edges):
+        V = list(set([i for i, j in edges] + [j for i, j in edges]))
+        unvisited = V[:]
+        cycle = V[:]  # Dummy - guaranteed to be replaced
+        while unvisited:  # true if list is non-empty
+            thiscycle = []
+            neighbors = unvisited
+            while neighbors:
+                current = neighbors[0]
+                thiscycle.append(current)
+                unvisited.remove(current)
+                neighbors = [j for i, j in edges.select(current, "*") if j in unvisited]
+            if len(thiscycle) <= len(cycle):
+                cycle = thiscycle  # New shortest subtour
+        return cycle
 
 
 def name_prefix(name: str):
