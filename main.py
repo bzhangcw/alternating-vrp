@@ -75,6 +75,6 @@ if __name__ == "__main__":
 
     params_bcd = BCDParams()
 
-    xk = optimize(bcdpar=params_bcd, block_data=vrp.block_data, route=route)
+    xk = optimize(bcdpar=params_bcd, vrp=vrp, route=route)
     for xx in xk:
         print(xx)

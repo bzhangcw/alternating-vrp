@@ -8,9 +8,7 @@ import sys
 from collections import defaultdict
 from itertools import combinations
 
-from gurobipy import GRB
-
-from util_solver import getConstrByPrefix
+from gurobipy import GRB, tuplelist, quicksum
 
 ##############################
 # DEFAULTS
@@ -51,6 +49,41 @@ logger.setLevel(logging.INFO)
 # consoleHandler.setFormatter(logFormatter)
 # logger.addHandler(consoleHandler)
 
+
+    # Callback - use lazy constraints to eliminate sub-tours
+def subtourelim(V, model, where):
+    if where == GRB.Callback.MIPSOL:
+        # make a list of edges selected in the solution
+        vals = model.cbGetSolution(model._vars)
+        selected = tuplelist(
+            (i, j) for i, j in model._vars.keys() if vals[i, j] > 0.5
+        )
+        # find the shortest cycle in the selected edge list
+        tour = subtour(selected)
+        if len(tour) < len(V):
+            # add subtour elimination constr. for every pair of cities in subtour
+            model.cbLazy(
+                quicksum(model._vars[i, j] for i, j in combinations(tour, 2))
+                <= len(tour) - 1
+            )
+
+# Given a tuplelist of edges, find the shortest subtour
+
+def subtour(edges):
+    V = list(set([i for i, j in edges] + [j for i, j in edges]))
+    unvisited = V[:]
+    cycle = V[:]  # Dummy - guaranteed to be replaced
+    while unvisited:  # true if list is non-empty
+        thiscycle = []
+        neighbors = unvisited
+        while neighbors:
+            current = neighbors[0]
+            thiscycle.append(current)
+            unvisited.remove(current)
+            neighbors = [j for i, j in edges.select(current, "*") if j in unvisited]
+        if len(thiscycle) <= len(cycle):
+            cycle = thiscycle  # New shortest subtour
+    return cycle
 
 # global graph generation id.
 class GraphCounter(object):
