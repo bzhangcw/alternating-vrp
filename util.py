@@ -45,12 +45,13 @@ logFormatter = logging.Formatter("%(asctime)s: %(message)s")
 logger = logging.getLogger("railway")
 logger.setLevel(logging.INFO)
 
+
 # consoleHandler = logging.StreamHandler(sys.stdout)
 # consoleHandler.setFormatter(logFormatter)
 # logger.addHandler(consoleHandler)
 
 
-    # Callback - use lazy constraints to eliminate sub-tours
+# Callback - use lazy constraints to eliminate sub-tours
 def subtourelim(V, model, where):
     if where == GRB.Callback.MIPSOL:
         # make a list of edges selected in the solution
@@ -66,6 +67,7 @@ def subtourelim(V, model, where):
                 quicksum(model._vars[i, j] for i, j in combinations(tour, 2))
                 <= len(tour) - 1
             )
+
 
 # Given a tuplelist of edges, find the shortest subtour
 
@@ -84,6 +86,7 @@ def subtour(edges):
         if len(thiscycle) <= len(cycle):
             cycle = thiscycle  # New shortest subtour
     return cycle
+
 
 # global graph generation id.
 class GraphCounter(object):
@@ -115,7 +118,6 @@ class SysParams(object):
         fileHandler = logging.FileHandler("{0}/{1}.log".format(fdir_result, "out"))
         fileHandler.setFormatter(logFormatter)
         logger.addHandler(fileHandler)
-
 
     def parse_environ(self):
         import os
