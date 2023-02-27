@@ -344,9 +344,10 @@ def _nonnegative(x):
 
 
 def show_log_header(bcdpar: BCDParams):
-    headers = ["k", "t", "c'x", "lobj", "|Ax - b|", "|cx-C|", "error", "rhol", "rhom", "tau", "iter"]
+    headers = ["k", "t", "c'x*", "c'x", "lobj", "|Ax - b|", "|cx-C|", "error", "rhol", "rhom", "tau", "iter"]
     slots = [
         "{:^3s}",
+        "{:^7s}",
         "{:^7s}",
         "{:^9s}",
         "{:^9s}",
@@ -672,11 +673,13 @@ def optimize(bcdpar: BCDParams, vrps: Tuple[VRP, VRP], route: Route):
             # set_par_heur(list_xk, d, var_map, N)
             ub_seq = np.inf
             for it, _d_it in _d_k.items():
-                ub_seq_new = seq_heur(vrp_clone, _d_it, xk, random_perm=True)
-                print(it, ub_seq_new)
+                ub_seq_new = seq_heur(vrp_clone, _d_it, xk, random_perm=True, bcdpar=bcdpar)
+                if bcdpar.verbosity > 1:
+                    print(it, ub_seq_new)
                 if ub_seq > ub_seq_new:
                     ub_seq = ub_seq_new
                     os.rename("seq_heur.sol", "seq_heur_curbst.sol")
+                    break
             if ub_seq < np.inf:
                 ub_flag += "S"
 

@@ -72,7 +72,7 @@ if __name__ == "__main__":
     print(len(vrp.block_data))
     print(len(vrp.block_data["A"]))
     vrp.m.write("vrp.lp")
-    vrp.m.Params.SolutionLimit = 100
+    vrp.m.Params.SolutionLimit = 1
     vrp.solve()
     vrp.m.Params.SolutionLimit = 3
     vrp.m.write("vrp.sol")
