@@ -63,10 +63,18 @@ if __name__ == "__main__":
     vrp = read_solomon()
     vrp.create_model()
     vrp.init(get_block_data=True)
+
+    # clone model for heur
+    vrp_clone = read_solomon()
+    vrp_clone.create_model()
+    vrp_clone.init(get_block_data=True)
+
     print(len(vrp.block_data))
     print(len(vrp.block_data["A"]))
     vrp.m.write("vrp.lp")
+    vrp.m.Params.SolutionLimit = 100
     vrp.solve()
+    vrp.m.Params.SolutionLimit = 3
     vrp.m.write("vrp.sol")
     print(vrp.m.objVal)
 
@@ -75,6 +83,6 @@ if __name__ == "__main__":
 
     params_bcd = BCDParams()
 
-    xk = optimize(bcdpar=params_bcd, vrp=vrp, route=route)
+    xk = optimize(bcdpar=params_bcd, vrps=(vrp, vrp_clone), route=route)
     for xx in xk:
         print(xx)

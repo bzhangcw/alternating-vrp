@@ -47,7 +47,26 @@ def enforce_coup_constrs(vrp, city):
     vrp.m.update()
 
 
-def seq_heur(vrp, c, xk):
+def print_circle(x: dict, idx):
+    circle = {}
+    for i, j, k in x.keys():
+        if k == idx and x[i, j, k].x > 0.5:
+            circle[i] = j
+    l = 0
+    i = list(circle.keys())[0]
+    print(f"circ of {idx}: ", end="")
+    while l < len(circle):
+        j = circle[i]
+        if l == 0:
+            print(f"{i}->{j}", end="")
+        else:
+            print(f"->{j}", end="")
+        i = j
+        l += 1
+    print()
+
+
+def seq_heur(vrp, d, xk, random_perm=False):
     assert all(var.lb == 0 for var in vrp.x.values())
     assert all(var.ub == 1 for var in vrp.x.values())
 
@@ -55,13 +74,16 @@ def seq_heur(vrp, c, xk):
 
     old_c = [var.obj for var in vrp.m.getVars()]
 
-    cost = {idx: 0 for idx in range(len(c))}
-    for idx, (_c, _x) in enumerate(zip(c, xk)):
+    cost = {idx: 0 for idx in range(len(d))}
+    for idx, (_d, _x) in enumerate(zip(d, xk)):
         vars = vrp.x.select('*', '*', idx)
-        for var, coef, xi in zip(vars, _c.toarray().flatten(), _x):
+        for var, coef, xi in zip(vars, _d.flatten(), _x):
             var.Obj = coef
             x = xi
             cost[idx] += x * coef
+
+    if random_perm:
+        cost = {k: v for k, v in enumerate(np.random.choice(range(len(d)), len(d), replace=False))}
 
     relax_coup_depot_constrs(vrp)
     for idx in vrp.J:
@@ -91,6 +113,7 @@ def seq_heur(vrp, c, xk):
         vrp.solve()
 
         if vrp.m.SolCount > 0:
+            # print_circle(vrp.x, idx)
             fix_var_to_x(x_idx)
 
             tour = set()
@@ -123,8 +146,10 @@ def seq_heur(vrp, c, xk):
     # recover old c
     for var, coef in zip(vrp.m.getVars(), old_c):
         var.Obj = coef
-
+    # vrp.m.setParam("LogToConsole", 1)
+    vrp.m.reset()  # FIXME: no warm start? set time limit instead of solution limit
     vrp.solve()
+    vrp.m.setParam("LogToConsole", 0)
     vrp.m.write("seq_heur.sol")
 
     try:

@@ -15,7 +15,7 @@ functional interface module for bcd
 """
 import argparse
 import functools
-from typing import Dict
+from typing import Dict, Tuple
 import time
 import numpy as np
 import scipy
@@ -355,7 +355,7 @@ def show_log_header(bcdpar: BCDParams):
     print("*" * lt)
 
 
-def optimize(bcdpar: BCDParams, vrp: VRP, route: Route):
+def optimize(bcdpar: BCDParams, vrps: Tuple[VRP, VRP], route: Route):
     """
 
     Args:
@@ -382,6 +382,7 @@ def optimize(bcdpar: BCDParams, vrp: VRP, route: Route):
 
     """
     # data
+    vrp, vrp_clone = vrps
     start = time.time()
     block_data = vrp.block_data
     A, b, B, q = block_data["A"], block_data["b"], block_data["B"], block_data["q"]
@@ -459,8 +460,10 @@ def optimize(bcdpar: BCDParams, vrp: VRP, route: Route):
             for idx in range(nblock):
                 wk[idx] = _w = _proj(xk[idx], theta[idx])
 
+        _d_k = {}
         # inner iteration
         for it in range(bcdpar.dual_linearize_max if bcdpar.dual_linearize else 1):
+            _d_it = []
             # idx: A[idx]@x[idx]
             for idx in range(nblock):
                 ############################################
@@ -560,7 +563,9 @@ def optimize(bcdpar: BCDParams, vrp: VRP, route: Route):
                     block_nodes[idx].append(_s)
                     G.add_node(_s)
                     detect_conflict(G, _s, idx, block_nodes, var_map)
-
+                
+                _d_it.append(_d)  # save each d in inner iter
+            _d_k[it] = _d_it  # save each iter's d's
             # fixed-point eps
             if sum(_eps_fix_point.values()) < 1e-4:
                 break
@@ -586,7 +591,13 @@ def optimize(bcdpar: BCDParams, vrp: VRP, route: Route):
         if bcdpar.primal_method not in {Primal.Null}:
             # mis_heur(G, xk, (nblock, A, b, k, n, d), c)
             # set_par_heur(list_xk, d, var_map, N)
-            ub_seq = seq_heur(vrp, c, xk)
+            ub_seq = np.inf
+            for it, _d_it in _d_k.items():
+                ub_seq_new = seq_heur(vrp_clone, _d_it, xk, random_perm=True)
+                print(it, ub_seq_new)
+                if ub_seq > ub_seq_new:
+                    ub_seq = ub_seq_new
+                    os.rename("seq_heur.sol", "seq_heur_curbst.sol")
             if ub_seq < np.inf:
                 ub_flag += "S"
 
