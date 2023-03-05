@@ -200,8 +200,10 @@ class VRP:
 
     def no_obj_heur(self):
         self.m.Params.lazyConstraints = 1
+        sollim = self.m.Params.SolutionLimit
         self.m.Params.SolutionLimit = 1
         self.m.optimize(lambda model, where: self.subtourelim(model, where))
+        self.m.Params.SolutionLimit = sollim
 
     def subtourelim(self, model, where):
         if where == CONST.Callback.MIPSOL:

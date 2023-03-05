@@ -15,7 +15,7 @@ functional interface module for bcd
 """
 import argparse
 import functools
-from typing import Dict
+from typing import Dict, Tuple
 import time
 import numpy as np
 import scipy
@@ -344,9 +344,10 @@ def _nonnegative(x):
 
 
 def show_log_header(bcdpar: BCDParams):
-    headers = ["k", "t", "c'x", "lobj", "|Ax - b|", "|cx-C|", "error", "rhol", "rhom", "tau", "iter"]
+    headers = ["k", "t", "c'x*", "c'x", "lobj", "|Ax - b|", "|cx-C|", "error", "rhol", "rhom", "tau", "iter"]
     slots = [
         "{:^3s}",
+        "{:^7s}",
         "{:^7s}",
         "{:^9s}",
         "{:^9s}",
@@ -376,7 +377,7 @@ def show_log_header(bcdpar: BCDParams):
     print("*" * lt)
 
 
-def optimize(bcdpar: BCDParams, vrp: VRP, route: Route):
+def optimize(bcdpar: BCDParams, vrps: Tuple[VRP, VRP], route: Route):
     """
 
     Args:
@@ -404,6 +405,7 @@ def optimize(bcdpar: BCDParams, vrp: VRP, route: Route):
     """
     # data
     start_time = time.time()
+    vrp, vrp_clone = vrps
     block_data = vrp.block_data
     A, b, B, q = block_data["A"], block_data["b"], block_data["B"], block_data["q"]
     c, C, d = block_data["c"], block_data["C"], block_data["d"]
@@ -491,8 +493,10 @@ def optimize(bcdpar: BCDParams, vrp: VRP, route: Route):
             for idx in range(nblock):
                 wk[idx] = _w = _proj(xk[idx], theta[idx])
 
+        _d_k = {}
         # inner iteration
         for it in range(bcdpar.dual_linearize_max if bcdpar.dual_linearize else 1):
+            _d_it = []
             _Ax = sum(_vAx.values())
             al_func = sum(_vcx.values()) + (lbd.T @ (_Ax - b)).trace() \
                       + rhol * (np.linalg.norm(_Ax - b, 2) ** 2) / 2 + \
@@ -620,11 +624,15 @@ def optimize(bcdpar: BCDParams, vrp: VRP, route: Route):
                     block_nodes[idx].append(_s)
                     G.add_node(_s)
                     detect_conflict(G, _s, idx, block_nodes, var_map)
+                _d_it.append(_d)  # save each d in inner iter
+            _d_k[it] = _d_it  # save each iter's d's
 
             relerr = sum(_eps_fix_point.values()) / max(1, sum(_xnorm[idx] for idx in range(nblock)))
             if bcdpar.verbosity > 1:
                 print("{:01d} cx: {:.1e} al_func:{:+.3e} grad_func:{:+.3e} relerr:{:+.3e}".format(
                     it, sum(_vcx.values()), al_func[0][0], sum(_grad[idx] for idx in range(nblock)), relerr))
+
+
             # fixed-point eps
             if sum(_eps_fix_point.values()) < 1e-4:
                 break
@@ -661,7 +669,17 @@ def optimize(bcdpar: BCDParams, vrp: VRP, route: Route):
 
         ub_flag = ""
         if bcdpar.primal_method not in {Primal.Null}:
-            ub_seq = seq_heur(vrp, c, xk)
+            # mis_heur(G, xk, (nblock, A, b, k, n, d), c)
+            # set_par_heur(list_xk, d, var_map, N)
+            ub_seq = np.inf
+            for it, _d_it in _d_k.items():
+                ub_seq_new = seq_heur(vrp_clone, _d_it, xk, random_perm=True, bcdpar=bcdpar)
+                if bcdpar.verbosity > 1:
+                    print(it, ub_seq_new)
+                if ub_seq > ub_seq_new:
+                    ub_seq = ub_seq_new
+                    os.rename("seq_heur.sol", "seq_heur_curbst.sol")
+                    break
             if ub_seq < np.inf:
                 ub_flag += "S"
 
