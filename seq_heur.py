@@ -1,5 +1,5 @@
 import numpy as np
-from gurobipy import quicksum, GRB
+from gurobipy import quicksum, GRB, tuplelist
 from vrp import name_prefix
 
 
@@ -50,16 +50,21 @@ def enforce_coup_constrs(vrp, city):
 
 
 def enforce_coup_constrs_only_for_j(vrp, j, occu_len, free_idx):
-    node_occ = vrp.m.addVars(vrp.V_0, vtype=GRB.BINARY)
+    node_occ_j = vrp.m.addVars(vrp.V_0, vtype=GRB.BINARY)
     coup_j = vrp.m.addConstrs(
         (quicksum(vrp.x[s, t, j] for s in vrp.in_neighbours(t) if s != t)
          ==
-         node_occ[t]
+         node_occ_j[t]
          for t in vrp.V_0),
-        **name_prefix("coup"))
-    node_ub = len(vrp.V_0) - occu_len - len(free_idx)
-    node_lim = vrp.m.addConstr(quicksum(node_occ[t] for t in vrp.V_0) <= node_ub)
-    return coup_j, node_lim
+        **name_prefix(f"coup_{j}"))
+    node_ub_hard = len(vrp.V_0) - occu_len - len(free_idx)
+    node_ub = min(node_ub_hard, 1.5 * (len(vrp.V_0) - occu_len) / (len(free_idx) + 1))
+    node_ub_j = vrp.m.addConstr(quicksum(node_occ_j[t] for t in vrp.V_0) <= node_ub)
+    node_lb_j = tuplelist() if len(free_idx) > 0 else \
+        vrp.m.addConstr(quicksum(node_occ_j[t] for t in vrp.V_0)
+                        >=
+                        (len(vrp.V_0) - occu_len))
+    return coup_j, node_ub_j, node_lb_j, node_occ_j
 
 
 def print_circle(x: dict, idx):
@@ -119,7 +124,7 @@ def seq_heur(vrp, d, xk, random_perm=False, bcdpar=None, opt_first=False):
         fix_idx.add(idx)
         free_idx.remove(idx)
 
-        coup_j, node_lim = enforce_coup_constrs_only_for_j(vrp, idx, total_len, free_idx)
+        aux_var_cons = enforce_coup_constrs_only_for_j(vrp, idx, total_len, free_idx)
 
         # enforce all constraints in the last iteration
         if len(free_idx) == 0:
@@ -154,8 +159,8 @@ def seq_heur(vrp, d, xk, random_perm=False, bcdpar=None, opt_first=False):
                 if city != vrp.p:
                     assert vrp.coup[city].index == city - 1
                     enforce_coup_constrs(vrp, city)
-            vrp.m.remove(coup_j)
-            vrp.m.remove(node_lim)
+            for aux in aux_var_cons:
+                vrp.m.remove(aux)
         else:
             flag = False
             if bcdpar.verbosity > 1:
@@ -167,8 +172,8 @@ def seq_heur(vrp, d, xk, random_perm=False, bcdpar=None, opt_first=False):
                 enforce_coup_constrs(vrp, _city)
             for _idx in cost.keys():
                 enforce_depot_constrs(vrp, _idx)
-            vrp.m.remove(coup_j)
-            vrp.m.remove(node_lim)
+            for aux in aux_var_cons:
+                vrp.m.remove(aux)
             break
 
     assert all(c.rhs == 1 for c in vrp.depot.values())
