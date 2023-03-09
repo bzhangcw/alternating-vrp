@@ -146,6 +146,7 @@ class BCDParams(object):
         self.norms = ([], [], [])
         self.multipliers = ([], [], [])
         self.iter_max = 10000
+        self.seq_heur_iter_max = 3
         self.dual_linearize_max = 10
         self.dual_linearize = True
         self.args = None
@@ -686,6 +687,7 @@ def optimize(bcdpar: BCDParams, vrps: Tuple[VRP, VRP], route: Route):
         if bcdpar.primal_method not in {Primal.Null}:
             # mis_heur(G, xk, (nblock, A, b, k, n, d), c)
             # set_par_heur(list_xk, d, var_map, N)
+            suc_cnt = 0
             ub_seq = np.inf
             for it, _d_it in _d_k.items():
                 ub_seq_new = seq_heur(vrp_clone, _d_it, xk, random_perm=True, bcdpar=bcdpar, opt_first=False)
@@ -694,12 +696,16 @@ def optimize(bcdpar: BCDParams, vrps: Tuple[VRP, VRP], route: Route):
                 if ub_seq > ub_seq_new:
                     ub_seq = ub_seq_new
                     os.rename("seq_heur.sol", "seq_heur_curbst.sol")
-                    break
+                    suc_cnt += 1
+                    if suc_cnt >= bcdpar.seq_heur_iter_max:
+                        break
             if ub_seq < np.inf:
                 ub_flag += "S"
 
             ub_bst = min(ub_bst, ub_seq)
 
+        if bcdpar.verbosity > 1:
+            show_log_header(bcdpar)
         _log_line = "{:03d} {:.1e} {:.1e} {:+.2e} {:+.2e} {:+.3e} {:+.3e} {:+.3e} {:+.3e} {:+.3e} {:.2e} {:04d}".format(
             k, _iter_time, ub_bst, cx, lobj, eps_pfeas_Axb, eps_pfeas_cap, eps_fp, rhol, rhom, tau, it + 1
         )
