@@ -56,19 +56,25 @@ class DualSubproblem(IntEnum):
     Route = 1
     CapaRoute = 2
     CapaWindowRoute = 3
+    Assignment = 4
+    CapaAssignment = 5
 
 
 # BCD params
 ALGORITHM_TYPE = {
     # solve proximal linear sub-problem
     # relax capacity and time-window
-    "prox-I": (Dual.ProxLinearCapacity, DualSubproblem.Route, Primal.Null),
+    "prox-I": (Dual.ProxLinearCapacity, DualSubproblem.Route, Primal.SetPar),
     "prox-II": (Dual.ProxLinearCapacityTW, DualSubproblem.Route, Primal.Null),
     "prox-III": (Dual.ProxLinear, DualSubproblem.CapaRoute, Primal.Null),
     "prox-IV": (Dual.ProxLinear, DualSubproblem.Route, Primal.Null),
     "prox-V": (Dual.ProxLinearCapacity_nal, DualSubproblem.Route, Primal.Null),
     "prox-VI": (Dual.linearProxLinearCapacityTW_cx, DualSubproblem.Route, Primal.Null),
     "prox-VII": (Dual.linearProxLinearCapacityTW_nx, DualSubproblem.Route, Primal.Null),
+    "prox-I-ap-no-primal": (Dual.ProxLinearCapacity, DualSubproblem.Assignment, Primal.Null),
+    "prox-I-ap": (Dual.ProxLinearCapacity, DualSubproblem.Assignment, Primal.SetPar),
+    "prox-I-apc-no-primal": (Dual.ProxLinear, DualSubproblem.CapaAssignment, Primal.Null),
+    "prox-I-apc": (Dual.ProxLinear, DualSubproblem.CapaAssignment, Primal.SetPar),
     # "prox-VIII": (Dual.NonlinearProxLinearCapacityTW, DualSubproblem.Route, Primal.Null),
     # "prox-IX": (Dual.NonlinearProxLinearCapacityTW_nal, DualSubproblem.Route, Primal.Null),
 }
@@ -113,6 +119,12 @@ class BCDParams(object):
         if verbosity > 1, print inner iteration info          
         """
     )
+    parser.add_argument(
+        "--fp",
+        type=str,
+        default="dataset/data/SolomonDataset_v2/r101-25",
+        help=""""""
+    )
 
     def __init__(self):
         self.kappa = 0.2
@@ -149,6 +161,7 @@ class BCDParams(object):
         self.dual_linearize_max = self.args.dual_linearize_max
         self.iter_max = self.args.iter_max
         self.verbosity = self.args.verbosity
+        self.fp = self.args.fp
 
     def update_bound(self, lb):
         if lb >= self.lb:
@@ -575,17 +588,21 @@ def optimize(bcdpar: BCDParams, vrps: Tuple[VRP, VRP], route: Route):
                 # solve dual subproblem
                 ############################################
                 if bcdpar.dual_method == DualSubproblem.Route:
-                    _x = route.solve_primal_by_mip(_d.flatten(), mode=0)
+                    _x = route.solve_primal_by_tsp(_d.flatten(), mode=0)
                 elif bcdpar.dual_method == DualSubproblem.CapaRoute:
                     # _x = route.solve_primal_by_mip(_d.flatten())
-                    _x = route.solve_primal_by_mip(_d.flatten(), mode=1)
+                    _x = route.solve_primal_by_tsp(_d.flatten(), mode=1)
                 elif bcdpar.dual_method == DualSubproblem.CapaWindowRoute:
                     # IN THIS MODE, YOU ALSO HAVE w,
                     # otherwise, you update in the after bcd for x
                     #   if it is a VRPTW
-                    # _x = route.solve_primal_by_mip(_d.flatten())
-                    # wk[idx] = _w = _proj(xk[idx], theta[idx])
+                    _x = route.solve_primal_by_tsp(_d.flatten(), mode=2)
+                    wk[idx] = _w = _proj(xk[idx], theta[idx])
                     raise ValueError("not implemented")
+                elif bcdpar.dual_method == DualSubproblem.Assignment:
+                    _x = route.solve_primal_by_assignment(_d.flatten(), mode=0)
+                elif bcdpar.dual_method == DualSubproblem.CapaAssignment:
+                    _x = route.solve_primal_by_assignment(_d.flatten(), mode=1)
                 else:
                     raise ValueError("not implemented")
 
@@ -632,7 +649,6 @@ def optimize(bcdpar: BCDParams, vrps: Tuple[VRP, VRP], route: Route):
                 print("{:01d} cx: {:.1e} al_func:{:+.3e} grad_func:{:+.3e} relerr:{:+.3e}".format(
                     it, sum(_vcx.values()), al_func[0][0], sum(_grad[idx] for idx in range(nblock)), relerr))
 
-
             # fixed-point eps
             if sum(_eps_fix_point.values()) < 1e-4:
                 break
@@ -665,7 +681,6 @@ def optimize(bcdpar: BCDParams, vrps: Tuple[VRP, VRP], route: Route):
         # primal update: some heuristic
         ############################################
         # ADD A PRIMAL METHOD FOR FEASIBLE SOLUTION
-        bcdpar.primal_method = 1
 
         ub_flag = ""
         if bcdpar.primal_method not in {Primal.Null}:
@@ -673,7 +688,7 @@ def optimize(bcdpar: BCDParams, vrps: Tuple[VRP, VRP], route: Route):
             # set_par_heur(list_xk, d, var_map, N)
             ub_seq = np.inf
             for it, _d_it in _d_k.items():
-                ub_seq_new = seq_heur(vrp_clone, _d_it, xk, random_perm=True, bcdpar=bcdpar)
+                ub_seq_new = seq_heur(vrp_clone, _d_it, xk, random_perm=True, bcdpar=bcdpar, opt_first=False)
                 if bcdpar.verbosity > 1:
                     print(it, ub_seq_new)
                 if ub_seq > ub_seq_new:

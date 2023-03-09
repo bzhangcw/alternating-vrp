@@ -58,30 +58,31 @@ def read_solomon(fp="dataset/data/SolomonDataset_v2/r101-25"):
 
 if __name__ == "__main__":
 
+
+
+    params_bcd = BCDParams()
     # create vrp instance
     # vrp = create_toy_instance()
-    vrp = read_solomon()
+    vrp = read_solomon(fp=params_bcd.fp)
     vrp.create_model()
     vrp.init(get_block_data=True)
 
     # clone model for heur
-    vrp_clone = read_solomon()
+    vrp_clone = read_solomon(fp=params_bcd.fp)
     vrp_clone.create_model()
     vrp_clone.init(get_block_data=True)
 
     print(len(vrp.block_data))
     print(len(vrp.block_data["A"]))
     vrp.m.write("vrp.lp")
-    vrp.m.Params.SolutionLimit = 1
-    vrp.solve()
-    vrp.m.Params.SolutionLimit = 3
-    vrp.m.write("vrp.sol")
-    print(vrp.m.objVal)
+    vrp.m.Params.SolutionLimit = 100
+    # vrp.solve()
+    # vrp.m.Params.SolutionLimit = 300
+    # vrp.m.write("vrp.sol")
+    # print(vrp.m.objVal)
 
     # create routing solver
     route = Route(vrp)
-
-    params_bcd = BCDParams()
 
     xk = optimize(bcdpar=params_bcd, vrps=(vrp, vrp_clone), route=route)
     for xx in xk:

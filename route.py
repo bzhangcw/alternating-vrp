@@ -80,7 +80,7 @@ class Route:
 
         self.bool_mip_built = True
 
-    def solve_primal_by_mip(self, c, mode=0):
+    def solve_primal_by_tsp(self, c, mode=0):
         """
         solve the primal problem using the cost vector c
         :param c:
@@ -102,6 +102,32 @@ class Route:
         self.m.Params.lazyConstraints = 1
         self.m.optimize(lambda model, where: subtourelim(self.vrp.V, model, where))
         return np.array([v for k, v in self.m.getAttr("x", self.x).items()]).reshape(
+            (-1, 1)
+        )
+
+    def solve_primal_by_assignment(self, c, mode=0):
+        """
+        solve the primal problem using the cost vector c
+        :param c:
+        :param mode: mode of subproblem
+            0 - TSP
+            1 - C-TSP
+            2 - C-TSP-TW
+        :return:
+        """
+        if not self.bool_mip_built:
+            self.create_model()
+            self.add_vars()
+            self.add_constrs(mode)
+
+        self.m.setObjective(
+            quicksum(c[idx] * self.x[s, t] for idx, (s, t) in enumerate(self.vrp.E)),
+            GRB.MINIMIZE,
+        )
+        self.m.optimize()
+        return np.array(
+            [v for k, v in self.m.getAttr("x", self.x).items()]
+        ).reshape(
             (-1, 1)
         )
 
@@ -145,4 +171,4 @@ if __name__ == "__main__":
     route = Route(vrp)
 
     cc = np.ones((len(V), len(V)))
-    route.solve_primal_by_mip(cc)
+    route.solve_primal_by_tsp(cc)
