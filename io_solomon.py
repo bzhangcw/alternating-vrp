@@ -45,9 +45,10 @@ class Agent:
         self.capacity = 0
 
 
-def g_ReadInputData(path):
+def g_ReadInputData(path, n_vehicles=10):
     # the parameter need to be changed
-    vehicle_fleet_size = 10
+    print(f"using n-vehicles: {n_vehicles}")
+    vehicle_fleet_size = n_vehicles
     g_number_of_time_intervals = 1236
     fixed_cost = 0
     waiting_arc_cost = 0
@@ -143,7 +144,7 @@ def g_ReadInputData(path):
     # g_node_list.append(node)  # FIXME: why not append the destination node?
     # g_number_of_nodes += 1
 
-    V = set([node.node_id for node in g_node_list])
+    V = list(set([node.node_id for node in g_node_list]))
 
     with open(path + '/input_link.csv', 'r') as fl:
         linel = fl.readlines()
@@ -184,7 +185,7 @@ def g_ReadInputData(path):
 
     print('vehicles_number:{}'.format(g_number_of_vehicles))
 
-    V = sorted([node.node_id for node in g_node_list])
+    V = list(set(sorted([node.node_id for node in g_node_list])))
     assert 0 in V
     E = [(link.from_node_id, link.to_node_id) for link in g_link_list]
     J = sorted([agent.agent_id for agent in g_agent_list])
@@ -207,8 +208,8 @@ def g_ReadInputData(path):
     return V, E, J, c, C, d, l, u, T
 
 
-def data_loader(path="dataset/data/SolomonDataset_v2/C101-100"):
-    return g_ReadInputData(path)
+def data_loader(path="dataset/data/SolomonDataset_v2/C101-100", n_vehicles=10):
+    return g_ReadInputData(path, n_vehicles)
 
 
 if __name__ == '__main__':

@@ -26,6 +26,7 @@ class VRP:
         assert len(self.V) == len(self.c)
 
         self.p = 0  # depot
+        print(self.V)
         self.V_0 = [i for i in self.V if i != self.p]  # nodes except depot
 
         assert self.p in self.V

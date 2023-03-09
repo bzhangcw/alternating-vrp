@@ -102,13 +102,20 @@ class BCDParams(object):
         maximum inner iteration (linearization)
         """
     )
-
     parser.add_argument(
         "--iter_max",
         type=int,
         default=200,
         help="""
         maximum outer iteration
+        """
+    )
+    parser.add_argument(
+        "--time_limit",
+        type=int,
+        default=500,
+        help="""
+        maximum time limit
         """
     )
     parser.add_argument(
@@ -123,7 +130,15 @@ class BCDParams(object):
         "--fp",
         type=str,
         default="dataset/data/SolomonDataset_v2/r101-25",
-        help=""""""
+        help="""data path"""
+    )
+    parser.add_argument(
+        "--n_vehicles",
+        type=int,
+        default=10,
+        help="""
+        number of vehicles used
+        """
     )
 
     def __init__(self):
@@ -151,6 +166,7 @@ class BCDParams(object):
         self.dual_linearize = True
         self.args = None
         self.verbosity = 2
+        self.time_limit = 0
         self.parse_environ()
 
     def parse_environ(self):
@@ -163,6 +179,8 @@ class BCDParams(object):
         self.iter_max = self.args.iter_max
         self.verbosity = self.args.verbosity
         self.fp = self.args.fp
+        self.time_limit = self.args.time_limit
+        self.n_vehicles = self.args.n_vehicles
 
     def update_bound(self, lb):
         if lb >= self.lb:
@@ -510,6 +528,7 @@ def optimize(bcdpar: BCDParams, vrps: Tuple[VRP, VRP], route: Route):
         _d_k = {}
         # inner iteration
         for it in range(bcdpar.dual_linearize_max if bcdpar.dual_linearize else 1):
+            if (time.time() - start_time) > bcdpar.time_limit: exit() # todo
             _d_it = []
             _Ax = sum(_vAx.values())
             al_func = sum(_vcx.values()) + (lbd.T @ (_Ax - b)).trace() \
@@ -518,7 +537,7 @@ def optimize(bcdpar: BCDParams, vrps: Tuple[VRP, VRP], route: Route):
                 _nonnegative(c[idx] @ xk[idx] - C[idx][0] + mu[idx] / rhom) ** 2 for idx in range(nblock)) / 2
 
             for idx in range(nblock):
-
+                if (time.time() - start_time) > bcdpar.time_limit: exit() # todo
                 ############################################
                 # update gradient
                 ############################################
