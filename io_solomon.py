@@ -110,11 +110,13 @@ def g_ReadInputData(path, n_vehicles=10):
     # node.g_activity_node_ending_time = 100
     g_node_list.append(node)
     g_number_of_nodes += 1
-
+    
+    print(sh.nrows)
     for l in range(1, sh.nrows):  # read each lines
         try:
             node = Node()
             node.node_id = int(sh.cell_value(l, 0))
+            print(node.node_id, sh.cell_value(l, 0))
             node.type = 2
             node.x = float(sh.cell_value(l, 1))
             node.y = float(sh.cell_value(l, 2))

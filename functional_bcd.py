@@ -735,8 +735,8 @@ def optimize(bcdpar: BCDParams, vrps: Tuple[VRP, VRP], route: Route):
         ############################################
         # update dual variables
         ###########################################
+        lbd += rhol * (_Ax - b)
         if np.linalg.norm(_Ax - b) <= etax:
-            lbd += rhol * (_Ax - b)
             etax = min(max(etax / rhol ** rhofact1, ctol), 1)
             subtolx = min(max(subtolx / rhol, gtol), 1)
         else:
