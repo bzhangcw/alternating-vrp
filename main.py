@@ -57,9 +57,6 @@ def read_solomon(fp="dataset/data/SolomonDataset_v2/r101-25", n_vehicles=10):
 
 
 if __name__ == "__main__":
-
-
-
     params_bcd = BCDParams()
     # create vrp instance
     # vrp = create_toy_instance()

@@ -86,7 +86,7 @@ def print_circle(x: dict, idx):
     print()
 
 
-def seq_heur(vrp, d, xk, random_perm=False, bcdpar=None, opt_first=False):
+def heur_seq(vrp, d, xk, random_perm=False, bcdpar=None, opt_first=False):
     assert all(var.lb == 0 for var in vrp.x.values())
     assert all(var.ub == 1 for var in vrp.x.values())
     flag = True
