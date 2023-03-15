@@ -28,7 +28,7 @@ from route import Route
 
 from enum import IntEnum
 
-from seq_heur import seq_heur
+from heur_seq import heur_seq
 from vrp import VRP
 
 
@@ -709,7 +709,7 @@ def optimize(bcdpar: BCDParams, vrps: Tuple[VRP, VRP], route: Route):
             suc_cnt = 0
             ub_seq = np.inf
             for it, _d_it in _d_k.items():
-                ub_seq_new = seq_heur(vrp_clone, _d_it, xk, random_perm=True, bcdpar=bcdpar, opt_first=False)
+                ub_seq_new = heur_seq(vrp_clone, _d_it, xk, random_perm=True, bcdpar=bcdpar, opt_first=False)
                 if bcdpar.verbosity > 1:
                     print(it, ub_seq_new)
                 if ub_seq > ub_seq_new:

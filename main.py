@@ -1,6 +1,7 @@
 from vrp import *
 from itertools import combinations
 import io_solomon
+import pickle
 from functional_bcd import *
 
 
@@ -51,15 +52,20 @@ def create_toy_instance():
 
 
 def read_solomon(fp="dataset/data/SolomonDataset_v2/r101-25", n_vehicles=10):
-    V, E, J, c, C, d, l, u, T = io_solomon.data_loader(fp, n_vehicles=n_vehicles)
+    pkl_fp = fp + "/data.pkl"
+    try:
+        with open(pkl_fp, "rb") as f:
+            V, E, J, c, C, d, l, u, T = pickle.load(f)
+    except FileNotFoundError:
+        V, E, J, c, C, d, l, u, T = io_solomon.data_loader(fp, n_vehicles=n_vehicles)
+        with open(fp + "/data.pkl", "wb") as f:
+            pickle.dump((V, E, J, c, C, d, l, u, T), f)
+
     vrp = VRP(V, E, J, c, C, d, l, u, T)
     return vrp
 
 
 if __name__ == "__main__":
-
-
-
     params_bcd = BCDParams()
     # create vrp instance
     # vrp = create_toy_instance()
