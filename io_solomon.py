@@ -79,6 +79,7 @@ def g_ReadInputData(path, n_vehicles=10):
     import scipy
     from scipy.optimize import linprog
 
+
     g_ending_state_vector = [None] * g_number_of_vehicles
 
     path_no_seq = []
@@ -206,8 +207,8 @@ def g_ReadInputData(path, n_vehicles=10):
         assert l[node_id] > -1e8
         assert u[node_id] > -1e8
     T = {(link.from_node_id, link.to_node_id): link.spend_tm for link in g_link_list}
-
-    return V, E, J, c, C, d, l, u, T
+    coordinates = [(g.x, g.y) for g in g_node_list]
+    return V, E, J, c, C, d, l, u, T, coordinates
 
 
 def data_loader(path="dataset/data/SolomonDataset_v2/C101-100", n_vehicles=10):

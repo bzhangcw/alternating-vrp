@@ -64,9 +64,10 @@ class DualSubproblem(IntEnum):
 ALGORITHM_TYPE = {
     # solve proximal linear sub-problem
     # relax capacity and time-window
-    "prox-I": (Dual.ProxLinearCapacity, DualSubproblem.Route, Primal.SetPar),
+    "prox-I": (Dual.ProxLinearCapacity, DualSubproblem.Route,  Primal.Null),
     "prox-II": (Dual.ProxLinearCapacityTW, DualSubproblem.Route, Primal.Null),
     "prox-III": (Dual.ProxLinear, DualSubproblem.CapaRoute, Primal.Null),
+    "prox-III-h": (Dual.ProxLinear, DualSubproblem.CapaRoute, Primal.SetPar),
     "prox-IV": (Dual.ProxLinear, DualSubproblem.Route, Primal.Null),
     "prox-V": (Dual.ProxLinearCapacity_nal, DualSubproblem.Route, Primal.Null),
     "prox-VI": (Dual.linearProxLinearCapacityTW_cx, DualSubproblem.Route, Primal.Null),
@@ -88,7 +89,7 @@ class BCDParams(object):
     parser.add_argument(
         "--method",
         type=str,
-        default="prox-I",
+        default="prox-III",
         choices=[*list(ALGORITHM_TYPE.keys())],
         help="""
         Choose algorithm
@@ -113,7 +114,7 @@ class BCDParams(object):
     parser.add_argument(
         "--time_limit",
         type=int,
-        default=500,
+        default=2000,
         help="""
         maximum time limit
         """
@@ -135,7 +136,7 @@ class BCDParams(object):
     parser.add_argument(
         "--n_vehicles",
         type=int,
-        default=10,
+        default=5,
         help="""
         number of vehicles used
         """
@@ -376,7 +377,8 @@ def _nonnegative(x):
 
 
 def show_log_header(bcdpar: BCDParams):
-    headers = ["k", "t", "c'x*", "c'x", "lobj", "|Ax - b|", "|cx-C|", "error", "rhol", "rhom", "tau", "iter"]
+    headers = ["k", "t", "c'x*", "c'x_h", "lobj", "|Ax - b|", "|cx-C|", "error", "rhol", "rhom", "tau", "iter"]
+    # headers = ["k", "t", "c'x", "lobj", "|Ax - b|", "|cx-C|", "error", "rhol", "rhom", "tau", "iter"]
     slots = [
         "{:^3s}",
         "{:^7s}",
@@ -467,12 +469,12 @@ def optimize(bcdpar: BCDParams, vrps: Tuple[VRP, VRP], route: Route):
     Anorm = 20  # scipy.sparse.linalg.norm(A) / 10
 
     # alias
-    rho0 = 10
+    rho0 = 1
     rhom = 2
     rhol = rho = rho0
-    tau = 2000 / (scipy.sparse.linalg.norm(A1) * rhol + scipy.sparse.linalg.norm(c[0]) * rhom)
-    # tau = 1 / ( scipy.sparse.linalg.norm(c[0]) * rhom)
-    sigma = 2
+    # tau = 2000 / (scipy.sparse.linalg.norm(A1) * rhol + scipy.sparse.linalg.norm(c[0]) * rhom)
+    tau0=tau = 2 / ( scipy.sparse.linalg.norm(A1) * rhol)
+    sigma = 1.2
     rhofact1 = 0.9
     ctol = gtol = 1e-6
     rhofact2 = 0.6
@@ -526,148 +528,163 @@ def optimize(bcdpar: BCDParams, vrps: Tuple[VRP, VRP], route: Route):
                 wk[idx] = _w = _proj(xk[idx], theta[idx])
 
         _d_k = {}
+
+        _Ax = sum(_vAx.values())
+        al_func_new = sum(_vcx.values()) + (lbd.T @ (_Ax - b)).trace() \
+                      + rhol * (np.linalg.norm(_Ax - b, 2) ** 2) / 2 + \
+                      rhom * sum(
+            _nonnegative(c[idx] @ xk[idx] - C[idx][0] + mu[idx] / rhom) ** 2 for idx in range(nblock)) / 2
         # inner iteration
         for it in range(bcdpar.dual_linearize_max if bcdpar.dual_linearize else 1):
             if (time.time() - start_time) > bcdpar.time_limit: exit() # todo
             _d_it = []
-            _Ax = sum(_vAx.values())
-            al_func = sum(_vcx.values()) + (lbd.T @ (_Ax - b)).trace() \
-                      + rhol * (np.linalg.norm(_Ax - b, 2) ** 2) / 2 + \
-                      rhom * sum(
-                _nonnegative(c[idx] @ xk[idx] - C[idx][0] + mu[idx] / rhom) ** 2 for idx in range(nblock)) / 2
 
-            for idx in range(nblock):
-                if (time.time() - start_time) > bcdpar.time_limit: exit() # todo
-                ############################################
-                # update gradient
-                ############################################
-                Ak = A[idx]
-                _Ax = sum(_vAx.values())
-                ############################################
-                # create dual cost
-                ############################################
-                if bcdpar.dual_update == Dual.ProxLinear:
-                    # _d = d[idx].reshape((-1, 1)) + Ak.T @ lbd + rhol * Ak.T @ (_Ax- Ak @ xk[idx]-0.5)
-                    _d = d[idx].reshape((-1, 1)) + Ak.T @ lbd + rhol * Ak.T @ (_Ax - b) \
-                         + (-xk[idx] / tau + 0.5 / tau)
-                elif bcdpar.dual_update == Dual.ProxLinearCapacity:
-                    _d = d[idx].reshape((-1, 1)) + Ak.T @ lbd + rhol * Ak.T @ (_Ax - Ak @ xk[idx] - 0.5) \
-                         + rhom * c[idx].T * (_nonnegative(c[idx] @ xk[idx] - C[idx][0]) + mu[idx] / rhom) \
-                         + (-xk[idx] / tau + 0.5 / tau)
-                    # _d = d[idx].reshape((-1, 1)) + Ak.T @ lbd + rhol * Ak.T @ (_Ax - b) \
-                    #      + rhom * c[idx].T * (_nonnegative(c[idx] @ xk[idx] - C[idx][0])+mu[idx] / rhom) \
-                    #      + (-xk[idx] / tau + 0.5 / tau)
-                elif bcdpar.dual_update == Dual.ProxLinearCapacity_nal:
-                    _d = d[idx].reshape((-1, 1)) + Ak.T @ lbd + rhol * Ak.T @ (_Ax - b) \
-                         + rhom * (c[idx].T * (_nonnegative(c[idx] @ xk[idx] - C[idx][0] + mu[idx] / rhom))) \
-                         + (-xk[idx] / tau + 0.5 / tau)
-                elif bcdpar.dual_update == Dual.ProxLinearCapacityTW:
-                    _d = d[idx].reshape((-1, 1)) + Ak.T @ lbd + rho * Ak.T @ (_Ax - b) \
-                         + rho * (c[idx].T * _nonnegative(c[idx] @ xk[idx] - C[idx][0] + mu[idx] / rho).trace()) \
-                         + rho * M * _nonnegative(P @ wk[idx] + M * xk[idx] - q + theta[idx] / rho) \
-                         + (-xk[idx] / tau + 0.5 / tau)
-                elif bcdpar.dual_update == Dual.linearProxLinearCapacityTW_cx:
-                    # todo for WR, corresponds to (23)
-                    P_bar = np.hstack((P, np.eye(len(xk[idx]))))
-                    PbTPb = np.vstack((np.hstack((P.T @ P, P.T)), P_bar))
-                    fx = - np.linalg.inv(PbTPb) @ (P_bar.T @ (M * xk[idx] - q + theta[idx] / rho))
-                    pfx = np.clip(fx, np.vstack((np.ravel(l).reshape((-1, 1)), np.zeros((n, 1)))),
-                                  np.vstack((np.ravel(u).reshape((-1, 1)), 999999 * np.ones((n, 1)))))
-                    df = -np.sign(abs(pfx - fx)) + 1
-                    _d = d[idx].reshape((-1, 1)) + Ak.T @ lbd + rhol * Ak.T @ (_Ax - b) \
-                         + rhom * (c[idx].T * (_nonnegative((c[idx] @ xk[idx]) - C[idx][0] + mu[idx] / rho))) \
-                         + rho * M * (
-                                 np.eye(n) - P_bar @ np.diag(df.flatten()) @ (np.linalg.inv(PbTPb)) @ (P_bar.T)) @ (
-                                 P_bar @ pfx + M * xk[idx] - q + theta[idx] / rho) \
-                         + (-xk[idx] / tau + 0.5 / tau)
-                elif bcdpar.dual_update == Dual.linearProxLinearCapacityTW_nx:
-                    # todo for WR, corresponds to (27)
-                    hx = - np.linalg.inv(P.T @ P) @ (P.T @ (M * xk[idx] - q + theta[idx] / rho))
-                    phx = np.clip(hx, np.ravel(l).reshape((-1, 1)), np.ravel(l).reshape((-1, 1)))
-                    dh = -np.sign(abs(phx - hx)) + 1
-                    _d = d[idx].reshape((-1, 1)) + Ak.T @ lbd + rhol * Ak.T @ (_Ax - b) \
-                         + rhom * c[idx].T * (_nonnegative(c[idx] @ xk[idx] - C[idx][0]) + mu[idx] / rhom) \
-                         + M * (np.eye(n) - P @ np.diag(dh.flatten()) @ (np.linalg.inv(P.T @ P)) @ P.T) @ (
-                                 theta[idx] + rho * _nonnegative(P @ phx + M * xk[idx] - q)) \
-                         + (-xk[idx] / tau + 0.5 / tau)
-                elif bcdpar.dual_update == Dual.NonlinearProxLinearCapacityTW:
-                    # todo for WR, corresponds to (31)
-                    _d = d[idx].reshape((-1, 1)) + Ak.T @ lbd + rho * Ak.T @ (_Ax - b) \
-                         + rho * (c[idx].T * _nonnegative(c[idx] @ xk[idx] - C[idx][0] + mu[idx] / rho)) \
-                         + rho * (P @ wk[idx] + T) * _nonnegative((P @ wk[idx] + T) * xk[idx] + theta[idx] / rho) \
-                         + (-xk[idx] / tau + 0.5 / tau)
-                elif bcdpar.dual_update == Dual.NonlinearProxLinearCapacityTW_nal:
-                    # todo for WR, corresponds to (33)
-                    _d = d[idx].reshape((-1, 1)) + Ak.T @ lbd + rho * Ak.T @ (_Ax - b) \
-                         + rho * (c[idx].T * _nonnegative(c[idx] @ xk[idx] - C[idx][0]) + mu[idx] / rho) \
-                         + (P @ wk[idx] + T) * (theta[idx] + rho * _nonnegative((P @ wk[idx] + T) * xk[idx])) \
-                         + (-xk[idx] / tau + 0.5 / tau)
-                else:
-                    raise ValueError("Dual update unrecognized")
-                ############################################
-                # solve dual subproblem
-                ############################################
-                if bcdpar.dual_method == DualSubproblem.Route:
-                    _x = route.solve_primal_by_tsp(_d.flatten(), mode=0)
-                elif bcdpar.dual_method == DualSubproblem.CapaRoute:
-                    # _x = route.solve_primal_by_mip(_d.flatten())
-                    _x = route.solve_primal_by_tsp(_d.flatten(), mode=1)
-                elif bcdpar.dual_method == DualSubproblem.CapaWindowRoute:
-                    # IN THIS MODE, YOU ALSO HAVE w,
-                    # otherwise, you update in the after bcd for x
-                    #   if it is a VRPTW
-                    _x = route.solve_primal_by_tsp(_d.flatten(), mode=2)
-                    wk[idx] = _w = _proj(xk[idx], theta[idx])
-                    raise ValueError("not implemented")
-                elif bcdpar.dual_method == DualSubproblem.Assignment:
-                    _x = route.solve_primal_by_assignment(_d.flatten(), mode=0)
-                elif bcdpar.dual_method == DualSubproblem.CapaAssignment:
-                    _x = route.solve_primal_by_assignment(_d.flatten(), mode=1)
-                else:
-                    raise ValueError("not implemented")
+            for tauk in range(20):
 
-                ############################################
-                # summarize
-                ############################################
-                _v_sp = (_d.T @ _x).trace()
-                #
-                _eps_fix_point[idx] = np.linalg.norm(xk[idx] - _x)
-                _xnorm[idx] = np.linalg.norm(xk[idx]) ** 2
-                _grad[idx] = np.linalg.norm(_d) ** 2
+                al_func = al_func_new
+                for idx in range(nblock):
+                    if (time.time() - start_time) > bcdpar.time_limit: exit() # todo
+                    ############################################
+                    # update gradient
+                    ############################################
+                    Ak = A[idx]
+                    _Ax = sum(_vAx.values())
+                    ############################################
+                    # create dual cost
+                    ############################################
+                    if bcdpar.dual_update == Dual.ProxLinear:
+                        # _d = d[idx].reshape((-1, 1)) + Ak.T @ lbd + rhol * Ak.T @ (_Ax- Ak @ xk[idx]-0.5)
+                        _d = d[idx].reshape((-1, 1)) + Ak.T @ lbd + rhol * Ak.T @ (_Ax - b) \
+                             + (-xk[idx] / tau + 0.5 / tau)
+                    elif bcdpar.dual_update == Dual.ProxLinearCapacity:
+                        _d = d[idx].reshape((-1, 1)) + Ak.T @ lbd + rhol * Ak.T @ (_Ax - Ak @ xk[idx] - 0.5) \
+                             + rhom * c[idx].T * (_nonnegative(c[idx] @ xk[idx] - C[idx][0]) + mu[idx] / rhom) \
+                             + (-xk[idx] / tau + 0.5 / tau)
+                        # _d = d[idx].reshape((-1, 1)) + Ak.T @ lbd + rhol * Ak.T @ (_Ax - b) \
+                        #      + rhom * c[idx].T * (_nonnegative(c[idx] @ xk[idx] - C[idx][0])+mu[idx] / rhom) \
+                        #      + (-xk[idx] / tau + 0.5 / tau)
+                    elif bcdpar.dual_update == Dual.ProxLinearCapacity_nal:
+                        _d = d[idx].reshape((-1, 1)) + Ak.T @ lbd + rhol * Ak.T @ (_Ax - b) \
+                             + rhom * (c[idx].T * (_nonnegative(c[idx] @ xk[idx] - C[idx][0] + mu[idx] / rhom))) \
+                             + (-xk[idx] / tau + 0.5 / tau)
+                    elif bcdpar.dual_update == Dual.ProxLinearCapacityTW:
+                        _d = d[idx].reshape((-1, 1)) + Ak.T @ lbd + rho * Ak.T @ (_Ax - b) \
+                             + rho * (c[idx].T * _nonnegative(c[idx] @ xk[idx] - C[idx][0] + mu[idx] / rho).trace()) \
+                             + rho * M * _nonnegative(P @ wk[idx] + M * xk[idx] - q + theta[idx] / rho) \
+                             + (-xk[idx] / tau + 0.5 / tau)
+                    elif bcdpar.dual_update == Dual.linearProxLinearCapacityTW_cx:
+                        # todo for WR, corresponds to (23)
+                        P_bar = np.hstack((P, np.eye(len(xk[idx]))))
+                        PbTPb = np.vstack((np.hstack((P.T @ P, P.T)), P_bar))
+                        fx = - np.linalg.inv(PbTPb) @ (P_bar.T @ (M * xk[idx] - q + theta[idx] / rho))
+                        pfx = np.clip(fx, np.vstack((np.ravel(l).reshape((-1, 1)), np.zeros((n, 1)))),
+                                      np.vstack((np.ravel(u).reshape((-1, 1)), 999999 * np.ones((n, 1)))))
+                        df = -np.sign(abs(pfx - fx)) + 1
+                        _d = d[idx].reshape((-1, 1)) + Ak.T @ lbd + rhol * Ak.T @ (_Ax - b) \
+                             + rhom * (c[idx].T * (_nonnegative((c[idx] @ xk[idx]) - C[idx][0] + mu[idx] / rho))) \
+                             + rho * M * (
+                                     np.eye(n) - P_bar @ np.diag(df.flatten()) @ (np.linalg.inv(PbTPb)) @ (P_bar.T)) @ (
+                                     P_bar @ pfx + M * xk[idx] - q + theta[idx] / rho) \
+                             + (-xk[idx] / tau + 0.5 / tau)
+                    elif bcdpar.dual_update == Dual.linearProxLinearCapacityTW_nx:
+                        # todo for WR, corresponds to (27)
+                        hx = - np.linalg.inv(P.T @ P) @ (P.T @ (M * xk[idx] - q + theta[idx] / rho))
+                        phx = np.clip(hx, np.ravel(l).reshape((-1, 1)), np.ravel(l).reshape((-1, 1)))
+                        dh = -np.sign(abs(phx - hx)) + 1
+                        _d = d[idx].reshape((-1, 1)) + Ak.T @ lbd + rhol * Ak.T @ (_Ax - b) \
+                             + rhom * c[idx].T * (_nonnegative(c[idx] @ xk[idx] - C[idx][0]) + mu[idx] / rhom) \
+                             + M * (np.eye(n) - P @ np.diag(dh.flatten()) @ (np.linalg.inv(P.T @ P)) @ P.T) @ (
+                                     theta[idx] + rho * _nonnegative(P @ phx + M * xk[idx] - q)) \
+                             + (-xk[idx] / tau + 0.5 / tau)
+                    elif bcdpar.dual_update == Dual.NonlinearProxLinearCapacityTW:
+                        # todo for WR, corresponds to (31)
+                        _d = d[idx].reshape((-1, 1)) + Ak.T @ lbd + rho * Ak.T @ (_Ax - b) \
+                             + rho * (c[idx].T * _nonnegative(c[idx] @ xk[idx] - C[idx][0] + mu[idx] / rho)) \
+                             + rho * (P @ wk[idx] + T) * _nonnegative((P @ wk[idx] + T) * xk[idx] + theta[idx] / rho) \
+                             + (-xk[idx] / tau + 0.5 / tau)
+                    elif bcdpar.dual_update == Dual.NonlinearProxLinearCapacityTW_nal:
+                        # todo for WR, corresponds to (33)
+                        _d = d[idx].reshape((-1, 1)) + Ak.T @ lbd + rho * Ak.T @ (_Ax - b) \
+                             + rho * (c[idx].T * _nonnegative(c[idx] @ xk[idx] - C[idx][0]) + mu[idx] / rho) \
+                             + (P @ wk[idx] + T) * (theta[idx] + rho * _nonnegative((P @ wk[idx] + T) * xk[idx])) \
+                             + (-xk[idx] / tau + 0.5 / tau)
+                    else:
+                        raise ValueError("Dual update unrecognized")
+                    ############################################
+                    # solve dual subproblem
+                    ############################################
+                    if bcdpar.dual_method == DualSubproblem.Route:
+                        _x = route.solve_primal_by_tsp(_d.flatten(), mode=0)
+                    elif bcdpar.dual_method == DualSubproblem.CapaRoute:
+                        # _x = route.solve_primal_by_mip(_d.flatten())
+                        _x = route.solve_primal_by_tsp(_d.flatten(), mode=1)
+                    elif bcdpar.dual_method == DualSubproblem.CapaWindowRoute:
+                        # IN THIS MODE, YOU ALSO HAVE w,
+                        # otherwise, you update in the after bcd for x
+                        #   if it is a VRPTW
+                        _x = route.solve_primal_by_tsp(_d.flatten(), mode=2)
+                        wk[idx] = _w = _proj(xk[idx], theta[idx])
+                        raise ValueError("not implemented")
+                    elif bcdpar.dual_method == DualSubproblem.Assignment:
+                        _x = route.solve_primal_by_assignment(_d.flatten(), mode=0)
+                    elif bcdpar.dual_method == DualSubproblem.CapaAssignment:
+                        _x = route.solve_primal_by_assignment(_d.flatten(), mode=1)
+                    else:
+                        raise ValueError("not implemented")
 
-                # update this block
-                xk[idx] = _x
-                _vAx[idx] = Ak @ _x
-                _vcx[idx] = _cx = d[idx] @ _x.flatten()
-                _vcxl[idx] = _cx
-                # calculate violation of capacity if relaxed
-                if bcdpar.dual_update in {Dual.ProxLinear}:
-                    _vBx[idx] = 0
-                else:
-                    _vBx[idx] = _nonnegative((c[idx] @ _x).trace() - C[idx][0])
-                # calculate violation of time window if relaxed
-                if bcdpar.dual_update in {
-                    Dual.ProxLinearCapacityTW,
-                    Dual.NonlinearProxLinearCapacityTW,
-                }:
-                    _vWx[idx] = _nonnegative(P @ wk[idx] + M * xk[idx] - q)
-                else:
-                    _vWx[idx] = np.zeros_like(theta[idx])
+                    ############################################
+                    # summarize
+                    ############################################
+                    _v_sp = (_d.T @ _x).trace()
+                    #
+                    _eps_fix_point[idx] = np.linalg.norm(xk[idx] - _x)
+                    _xnorm[idx] = np.linalg.norm(xk[idx]) ** 2
+                    _grad[idx] = np.linalg.norm(_d) ** 2
 
-                # save circle
-                if bcdpar.primal_method not in {Primal.Null}:
-                    _s = _x.tostring()
-                    list_xk[idx].append(_x)
-                    block_nodes[idx].append(_s)
-                    G.add_node(_s)
-                    detect_conflict(G, _s, idx, block_nodes, var_map)
-                _d_it.append(_d)  # save each d in inner iter
-            _d_k[it] = _d_it  # save each iter's d's
+                    # update this block
+                    xk[idx] = _x
+                    _vAx[idx] = Ak @ _x
+                    _vcx[idx] = _cx = d[idx] @ _x.flatten()
+                    _vcxl[idx] = _cx
+                    # calculate violation of capacity if relaxed
+                    if bcdpar.dual_update in {Dual.ProxLinear}:
+                        _vBx[idx] = 0
+                    else:
+                        _vBx[idx] = _nonnegative((c[idx] @ _x).trace() - C[idx][0])
+                    # calculate violation of time window if relaxed
+                    if bcdpar.dual_update in {
+                        Dual.ProxLinearCapacityTW,
+                        Dual.NonlinearProxLinearCapacityTW,
+                    }:
+                        _vWx[idx] = _nonnegative(P @ wk[idx] + M * xk[idx] - q)
+                    else:
+                        _vWx[idx] = np.zeros_like(theta[idx])
+
+                    # save circle
+                    if bcdpar.primal_method not in {Primal.Null}:
+                        _s = _x.tostring()
+                        list_xk[idx].append(_x)
+                        block_nodes[idx].append(_s)
+                        G.add_node(_s)
+                        detect_conflict(G, _s, idx, block_nodes, var_map)
+                    _d_it.append(_d)  # save each d in inner iter
+
+                al_func_new = sum(_vcx.values()) + (lbd.T @ (_Ax - b)).trace() \
+                              + rhol * (np.linalg.norm(_Ax - b, 2) ** 2) / 2 + \
+                              rhom * sum(
+                    _nonnegative(c[idx] @ xk[idx] - C[idx][0] + mu[idx] / rhom) ** 2 for idx in range(nblock)) / 2
+
+                if al_func_new-al_func <=tau*sum(_eps_fix_point.values()):
+                    break
+                else:
+                    tau/=sigma
+
+                _d_k[it] = _d_it  # save each iter's d's
 
             relerr = sum(_eps_fix_point.values()) / max(1, sum(_xnorm[idx] for idx in range(nblock)))
             if bcdpar.verbosity > 1:
-                print("{:01d} cx: {:.1e} al_func:{:+.3e} grad_func:{:+.3e} relerr:{:+.3e}".format(
-                    it, sum(_vcx.values()), al_func[0][0], sum(_grad[idx] for idx in range(nblock)), relerr))
+                print("{:01d} cx: {:.1e} al_func:{:+.3e} grad_func:{:+.3e} relerr:{:+.3e} int:{:01d}".format(
+                    it, sum(_vcx.values()), al_func_new[0][0], sum(_grad[idx] for idx in range(nblock)), relerr, tauk))
 
             # fixed-point eps
             if sum(_eps_fix_point.values()) < 1e-4:
@@ -695,6 +712,10 @@ def optimize(bcdpar: BCDParams, vrps: Tuple[VRP, VRP], route: Route):
         #     break
         if eps_pfeas == 0 and eps_fp < 1e-4:
             # print(np.count_nonzero(_Ax-b))
+            _log_line = "{:03d} {:.2f} {:+.2f} {:+.2f} {:+.2f} {:+.3e} {:+.3e} {:+.3e} {:+.3e} {:+.3e} {:.2e} {:04d}".format(
+                k, _iter_time, cx, ub_bst, lobj, eps_pfeas_Axb, eps_pfeas_cap, eps_fp, rhol, rhom, tau, it + 1
+            )
+            print(_log_line)
             break
 
         ############################################
@@ -723,10 +744,14 @@ def optimize(bcdpar: BCDParams, vrps: Tuple[VRP, VRP], route: Route):
 
             ub_bst = min(ub_bst, ub_seq)
 
-        if bcdpar.verbosity > 1:
-            show_log_header(bcdpar)
-        _log_line = "{:03d} {:.1e} {:.1e} {:+.2e} {:+.2e} {:+.3e} {:+.3e} {:+.3e} {:+.3e} {:+.3e} {:.2e} {:04d}".format(
-            k, _iter_time, ub_bst, cx, lobj, eps_pfeas_Axb, eps_pfeas_cap, eps_fp, rhol, rhom, tau, it + 1
+        # if bcdpar.verbosity > 1:
+        #     show_log_header(bcdpar)
+        # _log_line = "{:03d} {:.1e} {:.1e} {:+.2e} {:+.2e} {:+.3e} {:+.3e} {:+.3e} {:+.3e} {:+.3e} {:.2e} {:04d}".format(
+        #     k, _iter_time, ub_bst, cx, lobj, eps_pfeas_Axb, eps_pfeas_cap, eps_fp, rhol, rhom, tau, it + 1
+        # )
+        # print(_log_line)
+        _log_line = "{:03d} {:.2f} {:+.2f} {:+.2f} {:+.2f} {:+.3e} {:+.3e} {:+.3e} {:+.3e} {:+.3e} {:.2e} {:04d}".format(
+            k, _iter_time, cx,ub_bst, lobj, eps_pfeas_Axb, eps_pfeas_cap, eps_fp, rhol, rhom, tau, it + 1
         )
         print(_log_line)
         if eps_pfeas == 0 and eps_fp < 1e-4:
@@ -740,7 +765,7 @@ def optimize(bcdpar: BCDParams, vrps: Tuple[VRP, VRP], route: Route):
             etax = min(max(etax / rhol ** rhofact1, ctol), 1)
             subtolx = min(max(subtolx / rhol, gtol), 1)
         else:
-            rhol = min(rhol + sigma, maxrho)
+            rhol = min(rhol * sigma, maxrho)
             etax = min(5 * etax, max(1 / rhol ** rhofact2, ctol))
             subtolx = min(max(1 / rhol, ctol), 1)
 
@@ -757,7 +782,8 @@ def optimize(bcdpar: BCDParams, vrps: Tuple[VRP, VRP], route: Route):
             subtolc = min(max(1 / rhom, ctol), 1)
 
         # if bcdpar.iter >= 10 and bcdpar.iter % 10 == 0:
-        #     tau = 15 / (scipy.sparse.linalg.norm(A1) * rhol + scipy.sparse.linalg.norm(c[0]) * rhom)
+        #     # tau = 2 / (scipy.sparse.linalg.norm(A1) * rhol)
+        #    tau/=2
 
         bcdpar.iter += 1
 

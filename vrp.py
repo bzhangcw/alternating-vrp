@@ -1,3 +1,4 @@
+from collections import defaultdict
 from itertools import permutations
 
 solver_name = "gurobi"
@@ -11,7 +12,7 @@ from scipy import sparse
 
 
 class VRP:
-    def __init__(self, V, E, J, c, C, d, a, b, T):
+    def __init__(self, V, E, J, c, C, d, a, b, T, coordinates):
         # data
         self.V = V  # node
         self.E = E  # arc
@@ -22,6 +23,7 @@ class VRP:
         self.a = a  # timewindow lower limit
         self.b = b  # timewindow upper limit
         self.T = T
+        self.coordinates = coordinates
 
         assert len(self.V) == len(self.c)
 
@@ -88,6 +90,16 @@ class VRP:
                                       **name_prefix("capa"))
 
         self.tw = None  # FIXME
+        # self.tw = self.m.addConstrs((quicksum(
+        #     self.w[s,j]- self.w[t,j] + T[s,t] - 1e3 * (1-self.x[s, t, j]) for s in self.V for t in self.out_neighbours(s) if s != t and t != self.p)
+        #                    <=
+        #                    0
+        #                    for j in self.J),
+        #                   **name_prefix("timewindow"))
+        # for s in self.V:
+        #     # assumption: service starts at 9:00 AM, 9 == 0 minutes, each hour after 9 is 60 minutes plus previous hours
+        #     self.m.addConstr(self.w[s,j] >= self.a[s])  # service should start after the earliest service start time
+        #     self.m.addConstr(self.w[s,j] <= self.b[s])  # service can't be started after the latest service start time
 
     def add_obj(self):
         self.m.setObjective(
@@ -246,6 +258,34 @@ class VRP:
             if len(thiscycle) <= len(cycle):
                 cycle = thiscycle  # New shortest subtour
         return cycle
+
+    def visualize(self, x=None):
+        if x is None:
+            # get own solution by MIP
+            x = self.m.getAttr('x')
+            x = np.array(x, np.int8).reshape(len(self.J), len(self.E))
+        solution = []
+        cc = np.array(self.c)
+        for xk in x:
+            e = xk.nonzero()[0]
+            edges= [self.E[ee] for ee in e]
+            edges_dict = dict(edges)
+            node_bfs = defaultdict(int)
+            i = 0
+            nodes = [0]
+            while True:
+                nx = edges_dict.get(i)
+                node_bfs[i] += 1
+                nodes.append(nx)
+                if nx is None or nx == 0 or node_bfs[i] > 1:
+                    break
+                i = nx
+
+            solution.append([nodes, len(nodes), len(edges), cc[nodes].sum()])
+
+        df = pd.DataFrame(solution, columns=['route-r', '|r|', '|Er|', 'sum(c)'])
+        print(df.to_markdown())
+        pass
 
 
 def name_prefix(name: str):

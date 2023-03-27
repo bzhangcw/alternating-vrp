@@ -2,6 +2,7 @@ from vrp import *
 from gurobipy import *
 from itertools import combinations
 from util import subtourelim
+import scipy
 
 
 class Route:
@@ -14,6 +15,13 @@ class Route:
         self.depot = None
         self.flow = None
         self.capa = None
+        self.rows = list(map(lambda x: x[0], self.vrp.E))
+        self.cols = list(map(lambda x: x[1], self.vrp.E))
+        self.cost_mat_size = len(self.vrp.V)
+        self.cost_mat = scipy.sparse.coo_matrix(
+            (np.zeros(len(self.vrp.E)), (self.rows, self.cols)),
+            shape=(self.cost_mat_size, self.cost_mat_size)
+        )
 
     def create_model(self):
         self.m = Model("VRP")
@@ -52,29 +60,41 @@ class Route:
             # solve capacitated route
             self.capa = self.m.addConstr(
                 (
-                    quicksum(
-                        vrp.c[t] * self.x[s, t]
-                        for s in vrp.V
-                        for t in vrp.out_neighbours(s)
-                        if s != t and t != vrp.p
-                    )
-                    <= vrp.C
+                        quicksum(
+                            vrp.c[t] * self.x[s, t]
+                            for s in vrp.V
+                            for t in vrp.out_neighbours(s)
+                            if s != t and t != vrp.p
+                        )
+                        <= vrp.C
                 ),
             )
         elif mode == 2:
             # solve capacitated route with TW
             vrp.capa = vrp.m.addConstr(
                 (
-                    quicksum(
-                        vrp.c[t] * vrp.x[s, t]
-                        for s in vrp.V
-                        for t in vrp.out_neighbours(s)
-                        if s != t and t != vrp.p
-                    )
-                    <= vrp.C
+                        quicksum(
+                            vrp.c[t] * vrp.x[s, t]
+                            for s in vrp.V
+                            for t in vrp.out_neighbours(s)
+                            if s != t and t != vrp.p
+                        )
+                        <= vrp.C
                 ),
             )
             # todo, time window
+            # '''constraint_6: time-windows and also eliminating sub-tours'''
+            # # '''
+            # for s in vrp.V:
+            #     # assumption: service starts at 9:00 AM, 9 == 0 minutes, each hour after 9 is 60 minutes plus previous hours
+            #     m.addConstr(z[s] >= l[s])  # service should start after the earliest service start time
+            #     m.addConstr(z[s] <= u[s])  # service can't be started after the latest service start time
+            #     for t in vrp.out_neighbours(s):
+            #         # taking the linear distance from one node to other as travelling time in minutes between those nodes
+            #         m.addConstr(z[s] >= z[t] + (st[j + 1] + dist_matrix[j + 1, i + 1]) * x[s, t] - 1e3 * (
+            #                     1 - x[s, t]))
+            # Add time window constraints
+
         else:
             raise ValueError("unknown mode")
 
@@ -101,6 +121,8 @@ class Route:
         )
         self.m.Params.lazyConstraints = 1
         self.m.optimize(lambda model, where: subtourelim(self.vrp.V, model, where))
+        if self.m.status != 2:
+            print('Not found optimal solution')
         return np.array([v for k, v in self.m.getAttr("x", self.x).items()]).reshape(
             (-1, 1)
         )
@@ -131,6 +153,20 @@ class Route:
             (-1, 1)
         )
 
+    def solve_primal_by_lkh(self, c, *args, **kwargs):
+        import elkai
+        self.cost_mat.data = c
+        _mat = self.cost_mat.todense()
+        _route = elkai.solve_float_matrix((_mat + _mat.T).tolist())
+        _route.append(0)
+        _edges = list(zip(_route[:-1], _route[1:]))
+        _sol = {k: 1 for k in _edges}
+        x = np.fromiter((_sol.get(k, 0) for k in self.vrp.E), dtype=np.int8).reshape(
+            (-1, 1)
+        )
+
+        pass
+
 
 if __name__ == "__main__":
     import json
@@ -150,11 +186,13 @@ if __name__ == "__main__":
     coordinates = {capital_map[c]: coordinates[c] for c in capitals}
     capitals = range(len(capitals))
 
+
     def distance(city1, city2):
         c1 = coordinates[city1]
         c2 = coordinates[city2]
         diff = (c1[0] - c2[0], c1[1] - c2[1])
         return math.sqrt(diff[0] * diff[0] + diff[1] * diff[1])
+
 
     dist = {(c1, c2): distance(c1, c2) for c1, c2 in combinations(capitals, 2)}
 
