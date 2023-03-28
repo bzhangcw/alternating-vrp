@@ -12,7 +12,8 @@ class Route:
 
         self.m = None
         self.x = None
-        self.depot = None
+        self.depot_out = None
+        self.depot_in = None
         self.flow = None
         self.capa = None
         self.rows = list(map(lambda x: x[0], self.vrp.E))
@@ -38,9 +39,13 @@ class Route:
     def add_constrs(self, mode=0):
 
         vrp = self.vrp
-        self.depot = self.m.addConstr(
+        self.depot_out = self.m.addConstr(
             quicksum(self.x[vrp.p, t] for t in vrp.V_0 if (vrp.p, t) in vrp.E) == 1,
-            name="depot",
+            name="depot_out",
+        )
+        self.depot_in = self.m.addConstr(
+            quicksum(self.x[t, vrp.p] for t in vrp.V_0 if (t, vrp.p) in vrp.E) == 1,
+            name="depot_in",
         )
 
         self.flow = self.m.addConstrs(

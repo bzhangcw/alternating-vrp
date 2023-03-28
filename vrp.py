@@ -45,7 +45,8 @@ class VRP:
 
         # constraints
         self.coup = None
-        self.depot = None
+        self.depot_out = None
+        self.depot_in = None
         self.flow = None
         self.capa = None
         self.tw = None
@@ -71,9 +72,14 @@ class VRP:
              for t in self.V_0),
             **name_prefix("coup"))
 
-        self.depot = self.m.addConstrs((quicksum(self.x[self.p, t, j] for t in self.V_0 if (self.p, t) in self.E) == 1
-                                        for j in self.J),
-                                       **name_prefix("depot"))
+        self.depot_out = self.m.addConstrs(
+            (quicksum(self.x[self.p, t, j] for t in self.V_0 if (self.p, t) in self.E) == 1
+             for j in self.J),
+            **name_prefix("depot_out"))
+        self.depot_in = self.m.addConstrs(
+            (quicksum(self.x[t, self.p, j] for t in self.V_0 if (t, self.p) in self.E) == 1
+             for j in self.J),
+            **name_prefix("depot_in"))
 
         self.flow = self.m.addConstrs((quicksum(self.x[s, t, j] for s in self.in_neighbours(t) if s != t)
                                        ==
@@ -154,7 +160,7 @@ class VRP:
                 A_j = A[:, var_indice[j]]
                 c_j = c[var_indice[j]]
 
-                sub_indice = [self.depot[j].index] + [c.index for c in self.flow.select('*', j)]
+                sub_indice = [self.depot_out[j].index, self.depot_in[j].index] + [c.index for c in self.flow.select('*', j)]
                 capa_indice = [self.capa[j].index]
 
                 self.block_data["A"].append(A_j[coup_indice, :])
@@ -237,8 +243,8 @@ class VRP:
                 if len(tour) < len(V):
                     # add subtour elimination constr. for every pair of cities in subtour
                     model.cbLazy(
-                        quicksum(model._vars[s, t, j0] for s, t in permutations(set(tour), 2))
-                        <= len(set(tour)) - 1
+                        quicksum(model._vars[s, t, j0] for s, t in permutations(tour, 2))
+                        <= len(tour) - 1
                     )
 
     # Given a tuplelist of edges, find the shortest subtour

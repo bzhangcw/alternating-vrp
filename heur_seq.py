@@ -29,14 +29,19 @@ def relax_coup_depot_constrs(vrp):
     for j, c in vrp.coup.items():
         c.rhs = len(vrp.J)
         c.sense = "<"
-    for j, c in vrp.depot.items():
+    for j, c in vrp.depot_out.items():
+        c.rhs = 0
+    for j, c in vrp.depot_in.items():
         c.rhs = 0
     m.update()
-    assert all(c.rhs == 0 for c in vrp.depot.values())
+    assert all(c.rhs == 0 for c in vrp.depot_out.values())
+    assert all(c.rhs == 0 for c in vrp.depot_in.values())
 
 
 def enforce_depot_constrs(vrp, j):
-    c = vrp.depot[j]
+    c = vrp.depot_out[j]
+    c.rhs = 1
+    c = vrp.depot_in[j]
     c.rhs = 1
     vrp.m.update()
 
@@ -136,8 +141,10 @@ def heur_seq(vrp, d, xk, random_perm=False, bcdpar=None, opt_first=False):
 
         enforce_depot_constrs(vrp, idx)
 
-        assert all(vrp.depot[i].RHS == 1 for i in fix_idx)
-        assert all(vrp.depot[i].RHS == 0 for i in free_idx)
+        assert all(vrp.depot_out[i].RHS == 1 for i in fix_idx)
+        assert all(vrp.depot_out[i].RHS == 0 for i in free_idx)
+        assert all(vrp.depot_in[i].RHS == 1 for i in fix_idx)
+        assert all(vrp.depot_in[i].RHS == 0 for i in free_idx)
 
         vrp.solve()
 
@@ -176,8 +183,10 @@ def heur_seq(vrp, d, xk, random_perm=False, bcdpar=None, opt_first=False):
                 vrp.m.remove(aux)
             break
 
-    assert all(c.rhs == 1 for c in vrp.depot.values())
-    assert all(c.sense == '=' for c in vrp.depot.values())
+    assert all(c.rhs == 1 for c in vrp.depot_out.values())
+    assert all(c.sense == '=' for c in vrp.depot_out.values())
+    assert all(c.rhs == 1 for c in vrp.depot_in.values())
+    assert all(c.sense == '=' for c in vrp.depot_in.values())
     assert all(c.rhs == 1 for c in vrp.coup.values())
     assert all(c.sense == '=' for c in vrp.coup.values())
 
