@@ -85,6 +85,7 @@ if __name__ == "__main__":
     vrp.m.Params.SolutionLimit = 1000000
     vrp.m.Params.MIPGap = 1e-5
     vrp.m.Params.TimeLimit = params_bcd.time_limit
+    # vrp.m.Params.Heuristics = 0
     vrp.solve()
     vrp.visualize(x=None)
     # vrp.m.write("vrp.sol")
