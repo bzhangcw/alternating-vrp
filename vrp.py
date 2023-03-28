@@ -62,9 +62,10 @@ class VRP:
 
     def add_vars(self):
         self.x = self.m.addVars([(s, t, j) for j in self.J for s, t in self.E], vtype=CONST.BINARY, **name_prefix("x"))
-        self.m._vars = self.x
+        self.m._x = self.x
 
     def add_constrs(self):
+        self.m._lazy_cons = []
         self.coup = self.m.addConstrs(
             (quicksum(self.x[s, t, j] for s in self.in_neighbours(t) if s != t for j in self.J)
              ==
@@ -221,18 +222,18 @@ class VRP:
         self.m.Params.lazyConstraints = 1
         sollim = self.m.Params.SolutionLimit
         self.m.Params.SolutionLimit = 1
-        self.m.optimize(lambda model, where: self.subtourelim(model, where))
+        # self.m.optimize(lambda model, where: self.subtourelim(model, where))
         self.m.Params.SolutionLimit = sollim
 
     def subtourelim(self, model, where):
         if where == CONST.Callback.MIPSOL:
             # make a list of edges selected in the solution
-            vals = model.cbGetSolution(model._vars)
+            x_vals = model.cbGetSolution(model._x)
 
             for j0 in self.J:
                 V = set()
                 selected = tuplelist(
-                    (s, t) for s, t, j in model._vars.keys() if j == j0 and vals[s, t, j] > 0.5
+                    (s, t) for s, t, j in model._x.keys() if j == j0 and x_vals[s, t, j] > 0.5
                 )
                 for s, t in selected:
                     V.add(s)
@@ -242,17 +243,24 @@ class VRP:
                 tour = self.subtour(selected)
                 if len(tour) < len(V):
                     # add subtour elimination constr. for every pair of cities in subtour
-                    model.cbLazy(
-                        quicksum(model._vars[s, t, j0] for s, t in permutations(tour, 2))
-                        <= len(tour) - 1
-                    )
+                    tmp_con = quicksum(model._x[s, t, j0] for s, t in permutations(tour, 2)) <= len(tour) - 1
+                    model.cbLazy(tmp_con)
+                    # self.m._lazy_cons.append(tmp_con)
+                    # print(tmp_con)
 
-    # Given a tuplelist of edges, find the shortest subtour
-
+    # Given a tuplelist of edges, find the shortest subtour not containing depot
     def subtour(self, edges):
         V = list(set([i for i, j in edges] + [j for i, j in edges]))
         unvisited = V[:]
         cycle = V[:]  # Dummy - guaranteed to be replaced
+        depot_connected = [j for i, j in edges.select(self.p, '*')]
+        unvisited.remove(self.p)
+        while depot_connected:
+            current = depot_connected.pop()
+            unvisited.remove(current)
+            neighbors = [j for i, j in edges.select(current, '*') if j in unvisited and j != 0]
+            depot_connected += neighbors
+
         while unvisited:  # true if list is non-empty
             thiscycle = []
             neighbors = unvisited
@@ -269,12 +277,12 @@ class VRP:
         if x is None:
             # get own solution by MIP
             x = self.m.getAttr('x')
-            x = np.array(x, np.int8).reshape(len(self.J), len(self.E))
+            x = np.array(x).reshape(len(self.J), len(self.E)).round().astype(np.int8)
         solution = []
         cc = np.array(self.c)
         for xk in x:
             e = xk.nonzero()[0]
-            edges= [self.E[ee] for ee in e]
+            edges = [self.E[ee] for ee in e]
             edges_dict = dict(edges)
             node_bfs = defaultdict(int)
             i = 0
