@@ -95,5 +95,9 @@ if __name__ == "__main__":
     route = Route(vrp)
 
     xk = optimize(bcdpar=params_bcd, vrps=(vrp, vrp_clone), route=route)
-    for xx in xk:
-        print(xx.reshape(-1).nonzero())
+    # vrp.visualize(x=xk)
+
+    print("*"*50)
+    vrp.visualize(x=None)
+    vrp.visualize(x=xk)
+    print("*"*50)

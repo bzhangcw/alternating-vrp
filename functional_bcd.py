@@ -64,7 +64,7 @@ class DualSubproblem(IntEnum):
 ALGORITHM_TYPE = {
     # solve proximal linear sub-problem
     # relax capacity and time-window
-    "prox-I": (Dual.ProxLinearCapacity, DualSubproblem.Route,  Primal.Null),
+    "prox-I": (Dual.ProxLinearCapacity, DualSubproblem.Route, Primal.Null),
     "prox-II": (Dual.ProxLinearCapacityTW, DualSubproblem.Route, Primal.Null),
     "prox-III": (Dual.ProxLinear, DualSubproblem.CapaRoute, Primal.Null),
     "prox-III-h": (Dual.ProxLinear, DualSubproblem.CapaRoute, Primal.SetPar),
@@ -377,14 +377,14 @@ def _nonnegative(x):
 
 
 def show_log_header(bcdpar: BCDParams):
-    headers = ["k", "t", "c'x*", "c'x_h", "lobj", "|Ax - b|", "|cx-C|", "error", "rhol", "rhom", "tau", "iter"]
+    headers = ["k", "t", "c'x", "c'x (H)", "lobj", "|Ax - b|", "|cx-C|", "error", "rhol", "rhom", "tau", "iter"]
     # headers = ["k", "t", "c'x", "lobj", "|Ax - b|", "|cx-C|", "error", "rhol", "rhom", "tau", "iter"]
     slots = [
-        "{:^3s}",
+        "{:^5s}",
         "{:^7s}",
-        "{:^7s}",
+        "{:^8s}",
         "{:^9s}",
-        "{:^9s}",
+        "{:^8s}",
         "{:^10s}",
         "{:^10s}",
         "{:^10s}",
@@ -473,7 +473,7 @@ def optimize(bcdpar: BCDParams, vrps: Tuple[VRP, VRP], route: Route):
     rhom = 2
     rhol = rho = rho0
     # tau = 2000 / (scipy.sparse.linalg.norm(A1) * rhol + scipy.sparse.linalg.norm(c[0]) * rhom)
-    tau0=tau = 2 / ( scipy.sparse.linalg.norm(A1) * rhol)
+    tau0 = tau = 2 / (scipy.sparse.linalg.norm(A1) * rhol)
     sigma = 1.2
     rhofact1 = 0.9
     ctol = gtol = 1e-6
@@ -492,7 +492,7 @@ def optimize(bcdpar: BCDParams, vrps: Tuple[VRP, VRP], route: Route):
     theta = [rho * np.zeros((n, 1)) for _ in A]
 
     # logger
-
+    _LOG_FORMAT = "{:03d} {:4.1e} {:+8.2f} {:+9.2f} {:+9.2f} {:+.3e} {:+.3e} {:+.3e} {:+.3e} {:+.3e} {:.2e} {:04d}"
     show_log_header(bcdpar)
 
     # - k: outer iteration num
@@ -536,14 +536,14 @@ def optimize(bcdpar: BCDParams, vrps: Tuple[VRP, VRP], route: Route):
             _nonnegative(c[idx] @ xk[idx] - C[idx][0] + mu[idx] / rhom) ** 2 for idx in range(nblock)) / 2
         # inner iteration
         for it in range(bcdpar.dual_linearize_max if bcdpar.dual_linearize else 1):
-            if (time.time() - start_time) > bcdpar.time_limit: exit() # todo
+            if (time.time() - start_time) > bcdpar.time_limit: exit()  # todo
             _d_it = []
 
             for tauk in range(20):
 
                 al_func = al_func_new
                 for idx in range(nblock):
-                    if (time.time() - start_time) > bcdpar.time_limit: exit() # todo
+                    if (time.time() - start_time) > bcdpar.time_limit: exit()  # todo
                     ############################################
                     # update gradient
                     ############################################
@@ -674,10 +674,10 @@ def optimize(bcdpar: BCDParams, vrps: Tuple[VRP, VRP], route: Route):
                               rhom * sum(
                     _nonnegative(c[idx] @ xk[idx] - C[idx][0] + mu[idx] / rhom) ** 2 for idx in range(nblock)) / 2
 
-                if al_func_new-al_func <=tau*sum(_eps_fix_point.values()):
+                if al_func_new - al_func <= tau * sum(_eps_fix_point.values()):
                     break
                 else:
-                    tau/=sigma
+                    tau /= sigma
 
                 _d_k[it] = _d_it  # save each iter's d's
 
@@ -712,7 +712,8 @@ def optimize(bcdpar: BCDParams, vrps: Tuple[VRP, VRP], route: Route):
         #     break
         if eps_pfeas == 0 and eps_fp < 1e-4:
             # print(np.count_nonzero(_Ax-b))
-            _log_line = "{:03d} {:.2f} {:+.2f} {:+.2f} {:+.2f} {:+.3e} {:+.3e} {:+.3e} {:+.3e} {:+.3e} {:.2e} {:04d}".format(
+            _log_line = \
+                _LOG_FORMAT.format(
                 k, _iter_time, cx, ub_bst, lobj, eps_pfeas_Axb, eps_pfeas_cap, eps_fp, rhol, rhom, tau, it + 1
             )
             print(_log_line)
@@ -750,8 +751,8 @@ def optimize(bcdpar: BCDParams, vrps: Tuple[VRP, VRP], route: Route):
         #     k, _iter_time, ub_bst, cx, lobj, eps_pfeas_Axb, eps_pfeas_cap, eps_fp, rhol, rhom, tau, it + 1
         # )
         # print(_log_line)
-        _log_line = "{:03d} {:.2f} {:+.2f} {:+.2f} {:+.2f} {:+.3e} {:+.3e} {:+.3e} {:+.3e} {:+.3e} {:.2e} {:04d}".format(
-            k, _iter_time, cx,ub_bst, lobj, eps_pfeas_Axb, eps_pfeas_cap, eps_fp, rhol, rhom, tau, it + 1
+        _log_line = _LOG_FORMAT.format(
+            k, _iter_time, cx, ub_bst, lobj, eps_pfeas_Axb, eps_pfeas_cap, eps_fp, rhol, rhom, tau, it + 1
         )
         print(_log_line)
         if eps_pfeas == 0 and eps_fp < 1e-4:
