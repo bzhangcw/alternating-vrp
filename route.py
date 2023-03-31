@@ -27,6 +27,7 @@ class Route:
     def create_model(self):
         self.m = Model("VRP")
         self.m.setParam("LogToConsole", 0)
+        self.m.setParam("LogFile", "cc.log")
 
     def add_vars(self):
         V = self.vrp.V
@@ -52,6 +53,14 @@ class Route:
             (
                 quicksum(self.x[s, t] for s in vrp.in_neighbours(t) if s != t)
                 == quicksum(self.x[t, s] for s in vrp.out_neighbours(t) if s != t)
+                for t in vrp.V
+            ),
+            **name_prefix("flow")
+        )
+        self.flow = self.m.addConstrs(
+            (
+                quicksum(self.x[s, t] for s in vrp.in_neighbours(t) if s != t)
+                <= 1
                 for t in vrp.V
             ),
             **name_prefix("flow")
@@ -105,6 +114,22 @@ class Route:
 
         self.bool_mip_built = True
 
+    def visualize(self, x):
+        e = x.nonzero()[0]
+        edges = [self.vrp.E[ee] for ee in e]
+        edges_dict = dict(edges)
+        node_bfs = defaultdict(int)
+        i = 0
+        nodes = [0]
+        while True:
+            nx = edges_dict.get(i)
+            node_bfs[i] += 1
+            nodes.append(nx)
+            if nx is None or nx == 0 or node_bfs[i] > 1:
+                break
+            i = nx
+        return nodes[:-1], edges
+
     def solve_primal_by_tsp(self, c, mode=0):
         """
         solve the primal problem using the cost vector c
@@ -115,22 +140,54 @@ class Route:
             2 - C-TSP-TW
         :return:
         """
+        self.bool_mip_built = 0
         if not self.bool_mip_built:
             self.create_model()
             self.add_vars()
             self.add_constrs(mode)
+
+        # clear call back results
 
         self.m.setObjective(
             quicksum(c[idx] * self.x[s, t] for idx, (s, t) in enumerate(self.vrp.E)),
             GRB.MINIMIZE,
         )
         self.m.Params.lazyConstraints = 1
-        self.m.optimize(lambda model, where: subtourelim(self.vrp.V, model, where))
-        if self.m.status != 2:
-            print('Not found optimal solution')
-        return np.array([v for k, v in self.m.getAttr("x", self.x).items()]).reshape(
-            (-1, 1)
+        # @note: keep for dbg
+        # xx = np.array(
+        #             [v for k, v in self.m.getAttr("x", self.x).items()]
+        #         ).reshape((-1, 1))
+        # e = xx.nonzero()[0]
+        # edges = [vrp.E[ee] for ee in e]
+        # edges_dict = dict(edges)
+        # edges_dict
+
+        self.m.optimize(
+            lambda model, where: subtourelim(model, where, self.vrp.p)
         )
+        xr = np.array(
+            [v for k, v in self.m.getAttr("x", self.x).items()]
+        ).reshape((-1, 1))
+
+        # @note, nonlazy mode, for dbg; do not remove
+        # bool_terminate = False
+        # while not bool_terminate:
+        #     self.m.optimize(
+        #         # lambda model, where: subtourelim(model, where, self.vrp.p)
+        #     )
+        #     xr = np.array(
+        #         [v for k, v in self.m.getAttr("x", self.x).items()]
+        #     ).reshape((-1, 1))
+        #     nodes, edges = self.visualize(xr)
+        #     if len(nodes) < len(edges):
+        #         cc = list(permutations(nodes, 2))
+        #         print(cc)
+        #         _ = self.m.addConstr(
+        #             quicksum(self.x[i, j] for i, j in cc)
+        #             <= len(nodes) - 1
+        #         )
+        #         continue
+        return xr
 
     def solve_primal_by_assignment(self, c, mode=0):
         """

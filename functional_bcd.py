@@ -755,8 +755,6 @@ def optimize(bcdpar: BCDParams, vrps: Tuple[VRP, VRP], route: Route):
             k, _iter_time, cx, ub_bst, lobj, eps_pfeas_Axb, eps_pfeas_cap, eps_fp, rhol, rhom, tau, it + 1
         )
         print(_log_line)
-        if eps_pfeas == 0 and eps_fp < 1e-4:
-            break
 
         ############################################
         # update dual variables

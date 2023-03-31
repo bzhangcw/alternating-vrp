@@ -6,7 +6,7 @@ import logging
 import os
 import sys
 from collections import defaultdict
-from itertools import combinations
+from itertools import combinations, permutations
 
 from gurobipy import GRB, tuplelist, quicksum
 
@@ -45,28 +45,40 @@ logFormatter = logging.Formatter("%(asctime)s: %(message)s")
 logger = logging.getLogger("railway")
 logger.setLevel(logging.INFO)
 
-
 # consoleHandler = logging.StreamHandler(sys.stdout)
 # consoleHandler.setFormatter(logFormatter)
 # logger.addHandler(consoleHandler)
 
+ff = open('tmp.log', 'w')
+
 
 # Callback - use lazy constraints to eliminate sub-tours
-def subtourelim(V, model, where):
+def subtourelim(model, where, depot):
     if where == GRB.Callback.MIPSOL:
         # make a list of edges selected in the solution
         vals = model.cbGetSolution(model._vars)
         selected = tuplelist(
             (i, j) for i, j in model._vars.keys() if vals[i, j] > 0.5
         )
+        V = set()
+
+        for s, t in selected:
+            V.add(s)
+            V.add(t)
         # find the shortest cycle in the selected edge list
-        tour = subtour(selected)
+        tour = subtourp(selected, depot)
+        print(selected, tour, V, file=ff, flush=True)
         if len(tour) < len(V):
+
             # add subtour elimination constr. for every pair of cities in subtour
-            model.cbLazy(
-                quicksum(model._vars[i, j] for i, j in combinations(tour, 2))
+            cc = list(permutations(tour, 2))
+
+            _ = model.cbLazy(
+                quicksum(model._vars[i, j] for i, j in cc)
                 <= len(tour) - 1
             )
+
+
 
 
 # Given a tuplelist of edges, find the shortest subtour
@@ -84,6 +96,46 @@ def subtour(edges):
             unvisited.remove(current)
             neighbors = [j for i, j in edges.select(current, "*") if j in unvisited]
         if len(thiscycle) <= len(cycle):
+            cycle = thiscycle  # New shortest subtour
+    return cycle
+
+
+def subtourp(edges, depot):
+    edges_dict = dict(edges)
+    node_bfs = defaultdict(int)
+    i = depot
+    nodes = [depot]
+    while True:
+        nx = edges_dict.get(i)
+        node_bfs[i] += 1
+        nodes.append(nx)
+        if nx is None or nx == 0 or node_bfs[i] > 1:
+            break
+        i = nx
+    return nodes[:-1]
+
+
+def subtour_for_depot(edges, depot):
+    V = list(set([i for i, j in edges] + [j for i, j in edges]))
+    unvisited = V[:]
+    cycle = V[:]  # Dummy - guaranteed to be replaced
+    depot_connected = [j for i, j in edges.select(depot, '*')]
+    unvisited.remove(depot)
+    while depot_connected:
+        current = depot_connected.pop()
+        unvisited.remove(current)
+        neighbors = [j for i, j in edges.select(current, '*') if j in unvisited and j != 0]
+        depot_connected += neighbors
+
+    while unvisited:  # true if list is non-empty
+        thiscycle = []
+        neighbors = unvisited
+        while neighbors:
+            current = neighbors[0]
+            thiscycle.append(current)
+            unvisited.remove(current)
+            neighbors = [j for i, j in edges.select(current, "*") if j in unvisited]
+        if (depot in cycle) and (len(thiscycle) <= len(cycle)):
             cycle = thiscycle  # New shortest subtour
     return cycle
 
@@ -132,4 +184,3 @@ class SysParams(object):
         logger.info(
             f"size: #train,#station,#timespan,#iter_max: {self.train_size, self.station_size, self.time_span, self.iter_max}"
         )
-
