@@ -56,13 +56,13 @@ def read_solomon(fp="dataset/data/SolomonDataset_v2/r101-25", n_vehicles=10):
     pkl_fp = fp + "/data_{}.pkl".format(n_vehicles)
     try:
         with open(pkl_fp, "rb") as f:
-            V, E, J, c, C, d, l, u, T, coordinates = pickle.load(f)
+            V, E, J, c, C, d, l, u, T, sl, coordinates = pickle.load(f)
     except FileNotFoundError:
-        V, E, J, c, C, d, l, u, T, coordinates = io_solomon.data_loader(fp, n_vehicles=n_vehicles)
+        V, E, J, c, C, d, l, u, T, sl, coordinates = io_solomon.data_loader(fp, n_vehicles=n_vehicles)
         with open(fp + "/data_{}.pkl".format(n_vehicles), "wb") as f:
-            pickle.dump((V, E, J, c, C, d, l, u, T, coordinates), f)
+            pickle.dump((V, E, J, c, C, d, l, u, T, sl, coordinates), f)
 
-    vrp = VRP(V, E, J, c, C, d, l, u, T, coordinates)
+    vrp = VRP(V, E, J, c, C, d, l, u, T, sl, coordinates)
     return vrp
 
 

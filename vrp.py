@@ -12,7 +12,7 @@ from scipy import sparse
 
 
 class VRP:
-    def __init__(self, V, E, J, c, C, d, a, b, T, coordinates):
+    def __init__(self, V, E, J, c, C, d, a, b, T, sl, coordinates):
         # data
         self.V = V  # node
         self.E = E  # arc
@@ -22,7 +22,8 @@ class VRP:
         self.d = d  # distance
         self.a = a  # timewindow lower limit
         self.b = b  # timewindow upper limit
-        self.T = T
+        self.T = T  # spend time
+        self.service_time = sl  # service time
         self.coordinates = coordinates
 
         assert len(self.V) == len(self.c)
@@ -50,6 +51,8 @@ class VRP:
         self.flow = None
         self.capa = None
         self.tw = None
+        self.tw_lb = None
+        self.tw_ub = None
 
         # block data
         self.block_data = dict()
@@ -63,6 +66,9 @@ class VRP:
     def add_vars(self):
         self.x = self.m.addVars([(s, t, j) for j in self.J for s, t in self.E], vtype=CONST.BINARY, **name_prefix("x"))
         self.m._x = self.x
+        self.w = self.m.addVars([(s, j) for j in self.J for s in self.V],  vtype=CONST.INTEGER,
+                                **name_prefix("w"))
+        self.m._w = self.w
 
     def add_constrs(self):
         self.m._lazy_cons = []
@@ -96,17 +102,21 @@ class VRP:
                                        for j in self.J),
                                       **name_prefix("capa"))
 
-        self.tw = None  # FIXME
-        # self.tw = self.m.addConstrs((quicksum(
-        #     self.w[s,j]- self.w[t,j] + T[s,t] - 1e3 * (1-self.x[s, t, j]) for s in self.V for t in self.out_neighbours(s) if s != t and t != self.p)
-        #                    <=
-        #                    0
-        #                    for j in self.J),
-        #                   **name_prefix("timewindow"))
-        # for s in self.V:
-        #     # assumption: service starts at 9:00 AM, 9 == 0 minutes, each hour after 9 is 60 minutes plus previous hours
-        #     self.m.addConstr(self.w[s,j] >= self.a[s])  # service should start after the earliest service start time
-        #     self.m.addConstr(self.w[s,j] <= self.b[s])  # service can't be started after the latest service start time
+        # self.tw = None  # FIXME
+        self.tw_lb = self.m.addConstrs(
+            (self.a[s] <= self.w[s, j] for s in self.V for j in self.J),
+            **name_prefix("tw_lb"))
+        self.tw_ub = self.m.addConstrs(
+            (self.w[s, j] <= self.b[s] for s in self.V for j in self.J),
+            **name_prefix("tw_ub"))
+
+        M = 1e4
+        self.tw = self.m.addConstrs(
+            (self.w[s, j] + self.T[s, t] + self.service_time[s] - M * (1 - self.x[s, t, j]) <= self.w[t, j]
+             for s, t in self.E if t != self.p for j in self.J),
+            **name_prefix("time_window"))
+        #啊啊啊这块真的要哭了，搞了好久，终于让我知道了bug在哪，这里要注意t != self.p(0)，因为初始点和终点都是w0,但是不能让这个时间为两个数，
+        # 所以这块不用考虑回到depot的问题，因为所有的车都可以满足这个回到depot的时间
 
     def add_obj(self):
         self.m.setObjective(
@@ -276,8 +286,8 @@ class VRP:
     def visualize(self, x=None):
         if x is None:
             # get own solution by MIP
-            x = self.m.getAttr('x')
-            x = np.array(x).reshape(len(self.J), len(self.E)).round().astype(np.int8)
+            x = self.m.getAttr("x",self.x)
+            x = np.array(list(x.values())).reshape(len(self.J), len(self.E)).round().astype(np.int8)
         solution = []
         cc = np.array(self.c)
         for xk in x:

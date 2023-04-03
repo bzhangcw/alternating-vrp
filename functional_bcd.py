@@ -67,6 +67,7 @@ ALGORITHM_TYPE = {
     "prox-I": (Dual.ProxLinearCapacity, DualSubproblem.Route, Primal.Null),
     "prox-II": (Dual.ProxLinearCapacityTW, DualSubproblem.Route, Primal.Null),
     "prox-III": (Dual.ProxLinear, DualSubproblem.CapaRoute, Primal.Null),
+    "prox-III-tw": (Dual.ProxLinear, DualSubproblem.CapaWindowRoute, Primal.Null),
     "prox-III-h": (Dual.ProxLinear, DualSubproblem.CapaRoute, Primal.SetPar),
     "prox-IV": (Dual.ProxLinear, DualSubproblem.Route, Primal.Null),
     "prox-V": (Dual.ProxLinearCapacity_nal, DualSubproblem.Route, Primal.Null),
@@ -89,7 +90,7 @@ class BCDParams(object):
     parser.add_argument(
         "--method",
         type=str,
-        default="prox-III",
+        default="prox-III-tw",
         choices=[*list(ALGORITHM_TYPE.keys())],
         help="""
         Choose algorithm
@@ -130,13 +131,13 @@ class BCDParams(object):
     parser.add_argument(
         "--fp",
         type=str,
-        default="dataset/data/SolomonDataset_v2/r101-25",
+        default="dataset/data/SolomonDataset_v2/r101-50",
         help="""data path"""
     )
     parser.add_argument(
         "--n_vehicles",
         type=int,
-        default=5,
+        default=12,
         help="""
         number of vehicles used
         """
@@ -473,8 +474,9 @@ def optimize(bcdpar: BCDParams, vrps: Tuple[VRP, VRP], route: Route):
     rhom = 2
     rhol = rho = rho0
     # tau = 2000 / (scipy.sparse.linalg.norm(A1) * rhol + scipy.sparse.linalg.norm(c[0]) * rhom)
-    tau0 = tau = 2 / (scipy.sparse.linalg.norm(A1) * rhol)
+    tau0 = tau = 5.5 / (scipy.sparse.linalg.norm(A1) * rhol)
     sigma = 1.2
+    tsig = 1.2
     rhofact1 = 0.9
     ctol = gtol = 1e-6
     rhofact2 = 0.6
@@ -492,7 +494,7 @@ def optimize(bcdpar: BCDParams, vrps: Tuple[VRP, VRP], route: Route):
     theta = [rho * np.zeros((n, 1)) for _ in A]
 
     # logger
-    _LOG_FORMAT = "{:03d} {:4.1e} {:+8.2f} {:+9.2f} {:+9.2f} {:+.3e} {:+.3e} {:+.3e} {:+.3e} {:+.3e} {:.2e} {:04d}"
+    _LOG_FORMAT = "{:03d} {:+8.2f} {:+8.2f} {:+9.2f} {:+9.2f} {:+.3e} {:+.3e} {:+.3e} {:+.3e} {:+.3e} {:.2e} {:04d}"
     show_log_header(bcdpar)
 
     # - k: outer iteration num
@@ -623,8 +625,8 @@ def optimize(bcdpar: BCDParams, vrps: Tuple[VRP, VRP], route: Route):
                         # otherwise, you update in the after bcd for x
                         #   if it is a VRPTW
                         _x = route.solve_primal_by_tsp(_d.flatten(), mode=2)
-                        wk[idx] = _w = _proj(xk[idx], theta[idx])
-                        raise ValueError("not implemented")
+                        # wk[idx] = _w = _proj(xk[idx], theta[idx])
+                        # raise ValueError("not implemented")
                     elif bcdpar.dual_method == DualSubproblem.Assignment:
                         _x = route.solve_primal_by_assignment(_d.flatten(), mode=0)
                     elif bcdpar.dual_method == DualSubproblem.CapaAssignment:
@@ -677,7 +679,7 @@ def optimize(bcdpar: BCDParams, vrps: Tuple[VRP, VRP], route: Route):
                 if al_func_new - al_func <= tau * sum(_eps_fix_point.values()):
                     break
                 else:
-                    tau /= sigma
+                    tau /= tsig
 
                 _d_k[it] = _d_it  # save each iter's d's
 
@@ -764,7 +766,7 @@ def optimize(bcdpar: BCDParams, vrps: Tuple[VRP, VRP], route: Route):
             etax = min(max(etax / rhol ** rhofact1, ctol), 1)
             subtolx = min(max(subtolx / rhol, gtol), 1)
         else:
-            rhol = min(rhol * sigma, maxrho)
+            rhol = min(rhol + sigma, maxrho)
             etax = min(5 * etax, max(1 / rhol ** rhofact2, ctol))
             subtolx = min(max(1 / rhol, ctol), 1)
 

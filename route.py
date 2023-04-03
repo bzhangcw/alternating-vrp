@@ -36,6 +36,8 @@ class Route:
         )
 
         self.m._vars = self.x
+        self.w = self.m.addVars([(s) for s in V],  vtype=CONST.INTEGER,
+                                name="w")
 
     def add_constrs(self, mode=0):
 
@@ -66,7 +68,6 @@ class Route:
             **name_prefix("flow")
         )
 
-        self.tw = None  # FIXME
         if mode == 0:
             # solve route only
             pass
@@ -85,29 +86,32 @@ class Route:
             )
         elif mode == 2:
             # solve capacitated route with TW
-            vrp.capa = vrp.m.addConstr(
+            self.capa = self.m.addConstr(
                 (
-                        quicksum(
-                            vrp.c[t] * vrp.x[s, t]
-                            for s in vrp.V
-                            for t in vrp.out_neighbours(s)
-                            if s != t and t != vrp.p
-                        )
-                        <= vrp.C
+                    quicksum(
+                        vrp.c[t] * self.x[s, t]
+                        for s in vrp.V
+                        for t in vrp.out_neighbours(s)
+                        if s != t and t != vrp.p
+                    )
+                    <= vrp.C
                 ),
             )
             # todo, time window
             # '''constraint_6: time-windows and also eliminating sub-tours'''
-            # # '''
-            # for s in vrp.V:
-            #     # assumption: service starts at 9:00 AM, 9 == 0 minutes, each hour after 9 is 60 minutes plus previous hours
-            #     m.addConstr(z[s] >= l[s])  # service should start after the earliest service start time
-            #     m.addConstr(z[s] <= u[s])  # service can't be started after the latest service start time
-            #     for t in vrp.out_neighbours(s):
-            #         # taking the linear distance from one node to other as travelling time in minutes between those nodes
-            #         m.addConstr(z[s] >= z[t] + (st[j + 1] + dist_matrix[j + 1, i + 1]) * x[s, t] - 1e3 * (
-            #                     1 - x[s, t]))
-            # Add time window constraints
+            self.tw_lb = self.m.addConstrs(
+                (vrp.a[s] <= self.w[s] for s in vrp.V),
+            )
+            self.tw_ub = self.m.addConstrs(
+                (self.w[s] <= vrp.b[s] for s in vrp.V),
+            )
+
+            M = 1e4
+            self.tw = self.m.addConstrs(
+                (self.w[s] + vrp.T[s, t] + vrp.service_time[s] - M * (1 - self.x[s, t]) <= self.w[t]
+                 for s in vrp.V
+                 for t in vrp.out_neighbours(s) if t != 0),
+            )
 
         else:
             raise ValueError("unknown mode")
@@ -140,7 +144,6 @@ class Route:
             2 - C-TSP-TW
         :return:
         """
-        self.bool_mip_built = 0
         if not self.bool_mip_built:
             self.create_model()
             self.add_vars()
