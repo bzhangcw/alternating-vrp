@@ -20,10 +20,11 @@ class Node:
         self.outbound_link_list = []
         self.demand = 0.0
         self.g_activity_node_beginning_time = 0
-        self.g_activity_node_ending_time = 0
+        self.g_activity_node_ending_time = 4000
         self.base_profit_for_searching = 0
         self.base_profit_for_lr_2 = 0
         self.base_profit_for_lr = 0
+        self.service_time = 0  # new addeds
 
 
 class Link:
@@ -49,14 +50,14 @@ def g_ReadInputData(path, n_vehicles=10):
     # the parameter need to be changed
     print(f"using n-vehicles: {n_vehicles}")
     vehicle_fleet_size = n_vehicles
-    g_number_of_time_intervals = 1236
+    g_number_of_time_intervals = 4000
     fixed_cost = 0
     waiting_arc_cost = 0
-    service_length = 90
+    service_length = 10
     origin_node = 0
     departure_time_beginning = 0
     destination_node = 101
-    arrival_time_ending = 1236
+    arrival_time_ending = 4000
 
     g_number_of_ADMM_iterations = 50
     g_number_of_cutting_plane_iterations = 50
@@ -78,7 +79,6 @@ def g_ReadInputData(path, n_vehicles=10):
 
     import scipy
     from scipy.optimize import linprog
-
 
     g_ending_state_vector = [None] * g_number_of_vehicles
 
@@ -111,19 +111,20 @@ def g_ReadInputData(path, n_vehicles=10):
     # node.g_activity_node_ending_time = 100
     g_node_list.append(node)
     g_number_of_nodes += 1
-    
+
     print(sh.nrows)
     for l in range(1, sh.nrows):  # read each lines
         try:
             node = Node()
             node.node_id = int(sh.cell_value(l, 0))
-            print(node.node_id, sh.cell_value(l, 0))
+            # print(node.node_id, sh.cell_value(l, 0))
             node.type = 2
             node.x = float(sh.cell_value(l, 1))
             node.y = float(sh.cell_value(l, 2))
             node.demand = float(sh.cell_value(l, 3))
             node.g_activity_node_beginning_time = int(sh.cell_value(l, 4))
             node.g_activity_node_ending_time = int(sh.cell_value(l, 5))
+            node.service_time = int(sh.cell_value(l, 6))
             node.base_profit_for_searching = base_profit
             node.base_profit_for_lr = base_profit
             node.base_profit_for_lr_2 = base_profit
@@ -200,15 +201,17 @@ def g_ReadInputData(path, n_vehicles=10):
     d = {(link.from_node_id, link.to_node_id): link.distance for link in g_link_list}
     l = [-1e9] * len(V)
     u = [-1e9] * len(V)
+    sl = [-1e9] * len(V)
     for node in g_node_list:
         node_id: int = node.node_id
         l[node_id] = node.g_activity_node_beginning_time
         u[node_id] = node.g_activity_node_ending_time
+        sl[node_id] = node.service_time
         assert l[node_id] > -1e8
         assert u[node_id] > -1e8
     T = {(link.from_node_id, link.to_node_id): link.spend_tm for link in g_link_list}
     coordinates = [(g.x, g.y) for g in g_node_list]
-    return V, E, J, c, C, d, l, u, T, coordinates
+    return V, E, J, c, C, d, l, u, T, sl, coordinates
 
 
 def data_loader(path="dataset/data/SolomonDataset_v2/C101-100", n_vehicles=10):
@@ -216,7 +219,8 @@ def data_loader(path="dataset/data/SolomonDataset_v2/C101-100", n_vehicles=10):
 
 
 if __name__ == '__main__':
-    V, E, J, c, C, d, l, u, T = data_loader()
+    V, E, J, c, C, d, l, u, T, sl, coordinates = data_loader()
     from vrp import VRP
-    VRP(V, E, J, c, C, d, l, u, T)
+
+    VRP(V, E, J, c, C, d, l, u, T, sl, coordinates)
     print('data_loader finished')

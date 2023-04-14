@@ -2,7 +2,11 @@ from vrp import *
 from itertools import combinations
 import io_solomon
 import pickle
+import dill
+import os
+import cloudpickle
 from functional_bcd import *
+import time
 
 
 def create_toy_instance():
@@ -52,17 +56,21 @@ def create_toy_instance():
 
 
 def read_solomon(fp="dataset/data/SolomonDataset_v2/r101-25", n_vehicles=10):
-    # pkl_fp = fp + "/data.pkl"
-    pkl_fp = fp + "/data_{}.pkl".format(n_vehicles)
+    timestamp = int(time.time()).__str__()[:6]
+    pkl_fp = fp + "/data_{}-{}.pkl".format(
+        n_vehicles, timestamp
+    )
     try:
         with open(pkl_fp, "rb") as f:
-            V, E, J, c, C, d, l, u, T, coordinates = pickle.load(f)
+            V, E, J, c, C, d, l, u, T, sl, coordinates = pickle.load(f)
     except FileNotFoundError:
-        V, E, J, c, C, d, l, u, T, coordinates = io_solomon.data_loader(fp, n_vehicles=n_vehicles)
-        with open(fp + "/data_{}.pkl".format(n_vehicles), "wb") as f:
-            pickle.dump((V, E, J, c, C, d, l, u, T, coordinates), f)
+        V, E, J, c, C, d, l, u, T, sl, coordinates = io_solomon.data_loader(fp, n_vehicles=n_vehicles)
+        with open(fp + "/data_{}-{}.pkl".format(
+                n_vehicles, timestamp
+        ), "wb") as f:
+            pickle.dump((V, E, J, c, C, d, l, u, T, sl, coordinates), f)
 
-    vrp = VRP(V, E, J, c, C, d, l, u, T, coordinates)
+    vrp = VRP(V, E, J, c, C, d, l, u, T, sl, coordinates)
     return vrp
 
 
@@ -82,11 +90,15 @@ if __name__ == "__main__":
     print(len(vrp.block_data))
     print(len(vrp.block_data["A"]))
     vrp.m.write("vrp.lp")
+    start_time = time.time()
     vrp.m.Params.SolutionLimit = 1000000
-    vrp.m.Params.MIPGap = 1e-5
+    # vrp.m.Params.PoolSolutions = 50
+    vrp.m.Params.PoolSearchMode = 2
+    seed = 1234
+    vrp.m.setParam('Seed', seed)
     vrp.m.Params.TimeLimit = params_bcd.time_limit
-    # vrp.m.Params.Heuristics = 0
     vrp.solve()
+    print('Gurobi Running time: %s Seconds' % (time.time() - start_time))
     vrp.visualize(x=None)
     # vrp.m.write("vrp.sol")
     # print(vrp.m.objVal)
@@ -97,7 +109,7 @@ if __name__ == "__main__":
     xk = optimize(bcdpar=params_bcd, vrps=(vrp, vrp_clone), route=route)
     # vrp.visualize(x=xk)
 
-    print("*"*50)
+    print("*" * 50)
     vrp.visualize(x=None)
     vrp.visualize(x=xk)
-    print("*"*50)
+    print("*" * 50)
