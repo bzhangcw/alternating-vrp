@@ -67,7 +67,6 @@ ALGORITHM_TYPE = {
     "prox-I": (Dual.ProxLinearCapacity, DualSubproblem.Route, Primal.Null),
     "prox-II": (Dual.ProxLinearCapacityTW, DualSubproblem.Route, Primal.Null),
     "prox-III": (Dual.ProxLinear, DualSubproblem.CapaRoute, Primal.Null),
-    "prox-III-tw": (Dual.ProxLinear, DualSubproblem.CapaWindowRoute, Primal.Null),
     "prox-III-h": (Dual.ProxLinear, DualSubproblem.CapaRoute, Primal.SetPar),
     "prox-IV": (Dual.ProxLinear, DualSubproblem.Route, Primal.Null),
     "prox-V": (Dual.ProxLinearCapacity_nal, DualSubproblem.Route, Primal.Null),
@@ -90,7 +89,7 @@ class BCDParams(object):
     parser.add_argument(
         "--method",
         type=str,
-        default="prox-III-tw",
+        default="prox-III",
         choices=[*list(ALGORITHM_TYPE.keys())],
         help="""
         Choose algorithm
@@ -131,7 +130,7 @@ class BCDParams(object):
     parser.add_argument(
         "--fp",
         type=str,
-        default="dataset/data/SolomonDataset_v2/r101-25",
+        default="dataset/data/SolomonDataset_v2/r101-50",
         help="""data path"""
     )
     parser.add_argument(
@@ -142,31 +141,6 @@ class BCDParams(object):
         number of vehicles used
         """
     )
-    parser.add_argument(
-        "--sigma",
-        type=float,
-        default=1.1,
-        help="""
-        sigma
-        """
-    )
-    parser.add_argument(
-        "--tsig",
-        type=float,
-        default=1.1,
-        help="""
-        tau_sig
-        """
-    )
-    parser.add_argument(
-        "--rho0",
-        type=float,
-        default=1,
-        help="""
-        rho0
-        """
-    )
-
 
     def __init__(self):
         self.kappa = 0.2
@@ -194,9 +168,6 @@ class BCDParams(object):
         self.args = None
         self.verbosity = 2
         self.time_limit = 0
-        self.sigma = 1
-        self.tsig = 1
-        self.rho0 = 1
         self.parse_environ()
 
     def parse_environ(self):
@@ -211,9 +182,6 @@ class BCDParams(object):
         self.fp = self.args.fp
         self.time_limit = self.args.time_limit
         self.n_vehicles = self.args.n_vehicles
-        self.sigma = self.args.sigma
-        self.tsig = self.args.tsig
-        self.rho0 = self.args.rho0
 
     def update_bound(self, lb):
         if lb >= self.lb:
@@ -433,7 +401,6 @@ def show_log_header(bcdpar: BCDParams):
     print(("{:^" + f"{lt}" + "}").format("2023"))
     print("*" * lt)
     print("Algorithm details:")
-    print((f" :file_name             : {bcdpar.fp}"))
     print((f" :dual_update           : {bcdpar.dual_update.name}"))
     print((f" :dual_subproblem       : {bcdpar.dual_method.name}"))
     print((f" :dual_linearize        : {bcdpar.dual_linearize}"))
@@ -477,7 +444,7 @@ def optimize(bcdpar: BCDParams, vrps: Tuple[VRP, VRP], route: Route):
     A, b, B, q = block_data["A"], block_data["b"], block_data["B"], block_data["q"]
     c, C, d = block_data["c"], block_data["C"], block_data["d"]
     P, T, l, u = block_data["P"], block_data["T"], block_data["l"], block_data["u"]
-    M = 1e5  # todo => block_data['M']
+    M = 1e3  # todo => block_data['M']
     q = -T.reshape((-1, 1)) + M
     var_map = dict()
     for k, v in block_data["ind"].items():
@@ -502,16 +469,12 @@ def optimize(bcdpar: BCDParams, vrps: Tuple[VRP, VRP], route: Route):
     Anorm = 20  # scipy.sparse.linalg.norm(A) / 10
 
     # alias
-    rho0 = bcdpar.rho0
+    rho0 = 1
     rhom = 2
     rhol = rho = rho0
     # tau = 2000 / (scipy.sparse.linalg.norm(A1) * rhol + scipy.sparse.linalg.norm(c[0]) * rhom)
-    # nA={idx: 0 for idx, _A in enumerate(A)}
-    # for idx in range(nblock):
-    #     nA[idx] = scipy.sparse.linalg.norm(A[idx])
-    tau = 6.05 / ( scipy.sparse.linalg.norm(A1) * rhol)
-    sigma  = bcdpar.sigma
-    tsig = bcdpar.tsig
+    tau0 = tau = 2 / (scipy.sparse.linalg.norm(A1) * rhol)
+    sigma = 1.2
     rhofact1 = 0.9
     ctol = gtol = 1e-6
     rhofact2 = 0.6
@@ -660,8 +623,8 @@ def optimize(bcdpar: BCDParams, vrps: Tuple[VRP, VRP], route: Route):
                         # otherwise, you update in the after bcd for x
                         #   if it is a VRPTW
                         _x = route.solve_primal_by_tsp(_d.flatten(), mode=2)
-                        # wk[idx] = _w = _proj(xk[idx], theta[idx])
-                        # raise ValueError("not implemented")
+                        wk[idx] = _w = _proj(xk[idx], theta[idx])
+                        raise ValueError("not implemented")
                     elif bcdpar.dual_method == DualSubproblem.Assignment:
                         _x = route.solve_primal_by_assignment(_d.flatten(), mode=0)
                     elif bcdpar.dual_method == DualSubproblem.CapaAssignment:
@@ -714,8 +677,7 @@ def optimize(bcdpar: BCDParams, vrps: Tuple[VRP, VRP], route: Route):
                 if al_func_new - al_func <= tau * sum(_eps_fix_point.values()):
                     break
                 else:
-                    tau /= tsig
-                    # tau = 60 / (scipy.sparse.linalg.norm(A1) * rhol)
+                    tau /= sigma
 
                 _d_k[it] = _d_it  # save each iter's d's
 

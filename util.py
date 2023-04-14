@@ -66,7 +66,7 @@ def subtourelim(model, where, depot):
             V.add(s)
             V.add(t)
         # find the shortest cycle in the selected edge list
-        tour = subtourp(selected, depot)
+        tour = subtour(selected, depot)
         print(selected, tour, V, file=ff, flush=True)
         if len(tour) < len(V):
 
@@ -79,14 +79,20 @@ def subtourelim(model, where, depot):
             )
 
 
-
-
 # Given a tuplelist of edges, find the shortest subtour
 
-def subtour(edges):
+def subtour(edges, depot):
     V = list(set([i for i, j in edges] + [j for i, j in edges]))
     unvisited = V[:]
     cycle = V[:]  # Dummy - guaranteed to be replaced
+    depot_connected = [j for i, j in edges.select(depot, '*')]
+    unvisited.remove(depot)
+    while depot_connected:
+        current = depot_connected.pop()
+        unvisited.remove(current)
+        neighbors = [j for i, j in edges.select(current, '*') if j in unvisited and j != 0]
+        depot_connected += neighbors
+
     while unvisited:  # true if list is non-empty
         thiscycle = []
         neighbors = unvisited
