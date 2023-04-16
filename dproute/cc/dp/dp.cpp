@@ -9,17 +9,40 @@
 //}
 
 
-Solution run_dp_single_sol(
+
+bool bool_valid_route(state s, double C, double lb, double ub) {
+    if (s.c > C) {
+        return false;
+    } else if (s.t < lb) { return false; }
+    else if (s.t > ub) { return false; }
+    else {
+        return true;
+    }
+}
+
+bool bool_valid_route(state s, double C) {
+    if (s.c > C) {
+        return false;
+    } else {
+        return true;
+    }
+}
+
+
+void run_dp_single_sol(
         int n,
-        int m, // edge size
+        int m,
         double *f,
         double *D,
-        int *V,
         int *I,
         int *J,
-        int *T,
+        int *V,
+        double *c,
+        double *T,
         double *a,
-        double *b
+        double *b,
+        double C = 200.0,
+        bool verbose = false
 ) {
     /*
      * define containers
@@ -39,18 +62,22 @@ Solution run_dp_single_sol(
         }
         cout << endl;
     */
-
     /*
-     * define problem queue
+     * define problem LIFO queue
      * which is actually a stack (LIFO)
      * */
     auto queue = problem_queue();
-    Eigen::MatrixXf Dm(n,n);
+    Eigen::MatrixXf Dm(n, n); // cost
+    Eigen::MatrixXd Ex(n, n); // id matrix
 
-    for (int e=0; e<m; e++){
+
+    for (int e = 0; e < m; e++) {
         Dm(I[e], J[e]) = f[e];
+        Ex(I[e], J[e]) = e;
     }
-    state s_init = state(0, 0.0, 0.0, V, n);
+
+
+    state s_init = state(0, 0.0, 0.0, 0.0, V, n);
     const string k_init = s_init.to_string();
     state_dict[k_init] = s_init;
     queue.insert(s_init);
@@ -58,35 +85,43 @@ Solution run_dp_single_sol(
         auto kv_pair = queue.get_last();
         string k = kv_pair.first;
         state s = kv_pair.second;
-        int n = s.s;
-        // cout << s.to_string() << endl;
-        if (s.s >= N) {
+        if (s.unv.empty()) {
             // which means you reach the last stage
-            value_dict[k] = state::evaluate();
+            value_dict[k] = s.apply();
             queue.pop();
             continue;
         }
         auto _tails = tail_dict[k];
         if (!_tails.empty()) {
-            /*9
+            /*
              * tail problems already defined
              * */
         } else {
             /*
              * this gives new tail problems
              * */
-            for (auto &_ac_val: {0, 1, -1}) {
-                action ac = action(_ac_val);
-                auto new_stage_and_tail = s.apply(ac);
-                auto new_state = new_stage_and_tail.second;
+            for (auto &j: s.unv) {
+                int eid = Ex(s.s, j);
+                action ac = action(
+                        s.s,
+                        j,
+                        Dm(s.s, j),
+                        T[eid],
+                        c[j]
+                );
+                auto new_state = s.apply(ac);
+                // what is a new state?
                 string new_state_k = new_state.to_string();
-                if (new_state.s < L) {
+                double lb = a[j];
+                double ub = b[j];
+//                if (!bool_valid_route(new_state_k, C, lb, ub)) {
+                if (!bool_valid_route(new_state, C)) {
                     continue;
-                    // which violates the lower bound;
                 }
                 auto new_tail = tail(new_state, ac);
                 auto got = value_dict.find(new_state_k);
                 if (got == value_dict.end()) {
+                    // not exists
                     queue.insert(new_state);
                 }
                 state_dict[new_state_k] = new_state;
@@ -96,7 +131,7 @@ Solution run_dp_single_sol(
             continue;
         }
         /*
-         * all tail problems has been solved,
+         * all tail problems has been proposed,
          * do value eval
          * summarize all tail problem
          *
@@ -106,9 +141,9 @@ Solution run_dp_single_sol(
         tail best_tail;
         string best_st_k;
 
-        for (auto &tl : _tails) {
+        for (auto &tl: _tails) {
             auto tl_s_k = tl.st.to_string();
-            double value = value_dict[tl_s_k] + evaluate(tl.st, tl.ac);
+            double value = value_dict[tl_s_k] + tl.ac.f;
             if (value < min_val) {
                 min_val = value;
                 best_ac = tl.ac;
@@ -121,88 +156,54 @@ Solution run_dp_single_sol(
         queue.pop();
     }
 
-    Eigen::ArrayXXd output = Eigen::ArrayXXd::Zero(N, 4);
     /*
      * generate the best policy
      *
      */
     string current_k = k_init;
+    vector<action> ac;
     while (true) {
         state s = state_dict[current_k];
-        if (s.s >= N) break;
-        output.col(3)[s.s] = s.s;
+//        if (s.s >= N) break;
+//        output.col(3)[s.s] = s.s;
         auto got = tail_star_dict.find(current_k);
         if (got == tail_star_dict.end())
             break;
         current_k = got->second.st.to_string();
-        auto is_work = got->second.ac.is_work;
-        output.col(0)[s.s] = (is_work == 1) * lambda[s.s];
-        output.col(1)[s.s] = float(is_work == -1);
-        output.col(2)[s.s] = float(is_work == 1);
-
+//        auto is_work = got->second.ac.is_work;
+//        output.col(0)[s.s] = (is_work == 1) * lambda[s.s];
+//        output.col(1)[s.s] = float(is_work == -1);
+//        output.col(2)[s.s] = float(is_work == 1);
+        ac.push_back(got->second.ac);
     }
-    if (print) {
+    if (verbose) {
         cout << "@best value:" << value_dict[k_init] << endl;
-        cout << "@best policy: \n"
-                "reward repair work lifespan\n"
-             << output
-             << endl;
+        cout << "@best policy:" << endl;
+        for (auto cc: ac)
+            cout << cc.to_string() << endl;
     }
-
-    auto solStruct = Solution(output, value_dict[k_init]);
-    return solStruct;
-
 }
 
 
-std::vector<double> run_dp_single(
-        int n,
-        double *f,
-        double *D,
-        double *V,
-        double *E,
-        double *a,
-        double *b,
-) {
-    auto sol = run_dp_single_sol(n, f, D, V, E, a, b);
-    auto array = get_solutions(sol, N, print);
-    return array;
-}
-
-//
-//std::vector<double> run_dp_batch(
-//        int size,
-//        double *lambda,
-//        double *c,
-//        int N,
-//        double *a,
-//        double *b,
-//        double L,
-//        int *tau,
-//        double *s0,
-//        bool print = true,
-//        bool truncate = true // whether we truncate strictly @stage N
+//std::vector<double> run_dp_single(
+//        int n,     // node size
+//        int m,     // edge size
+//        double *f, // cost array of E
+//        double *D, // distance array of E
+//        int *I,    // i~ of (i,j) := e in E
+//        int *J,    // j~ of (i,j) := e in E
+//        int *V,    // nodes
+//        double *c, // capacity usage
+//        double *T, // time needed to serve
+//        double *a, // lb of time-window
+//        double *b, // ub of time-window
+//        double C,  // capacity
 //) {
-//    /*
-//     * auto sol = run_dp_single_sol(c, N, a, b, L, tau, s0, print, truncate);
-//     * auto array = get_solutions(sol, N, print);
-//     * return array;
-//     */
-//    unsigned int nthreads = size;
-//
-//    std::vector<std::future<Solution>> futures(nthreads);
-//    std::vector<Solution> outputs(nthreads);
-//    for (decltype(futures)::size_type i = 0; i < nthreads; ++i) {
-//        futures[i] = std::async(
-//                run_dp_single_sol,
-//                lambda, c[i], N, a[i], b[i], L, tau[i], s0[i], print, truncate
-//        );
-//    }
-//    for (decltype(futures)::size_type i = 0; i < nthreads; ++i) {
-//        outputs[i] = futures[i].get();
-//    }
-//
-//    auto array = get_solutions(outputs, N);
+//    auto sol = run_dp_single_sol(
+//            n, m, f, D, I, J,
+//            V, c, T, a, b, C
+//    );
+//    auto array = get_solutions(sol, N, print);
 //    return array;
 //}
 
@@ -219,4 +220,75 @@ json parse_json(const std::string &fp) {
     ifstream ifs(fp);
     json _json = json::parse(ifs);
     return _json;
+}
+
+problem_data parse_data(const std::string &fp) {
+    using namespace std;
+    auto p = problem_data();
+    nlohmann::json t = parse_json(fp);
+    p.C = t["C"];
+    p.n = t["n"];
+    p.m = t["m"];
+
+    std::vector<double> cr = t["c"];
+    p.c = cr.data();
+    std::vector<double> ar = t["a"];
+    p.a = ar.data();
+    std::vector<double> br = t["b"];
+    p.b = br.data();
+    std::vector<double> tr = t["T"];
+    p.T = tr.data();
+
+    std::vector<int> ir = t["I"];
+    p.I = ir.data();
+    std::vector<int> jr = t["J"];
+    p.J = jr.data();
+    std::vector<int> vr = t["V"];
+    p.V = vr.data();
+    std::vector<double> fr = t["f"];
+    p.f = fr.data();
+    std::vector<double> dr = t["D"];
+    p.D = dr.data();
+
+    // verbose logging
+    fprintf(stdout, "number of nodes: %d, edges: %d, total capacity: %f",
+            p.n, p.m, p.C);
+
+    return p;
+}
+
+
+problem_data parse_data(char *fp) {
+    using namespace std;
+    auto p = problem_data();
+    nlohmann::json t = parse_json(fp);
+    p.C = t["C"];
+    p.n = t["n"];
+    p.m = t["m"];
+
+    std::vector<double> cr = t["c"];
+    p.c = cr.data();
+    std::vector<double> ar = t["a"];
+    p.a = ar.data();
+    std::vector<double> br = t["b"];
+    p.b = br.data();
+    std::vector<double> tr = t["T"];
+    p.T = tr.data();
+
+    std::vector<int> ir = t["I"];
+    p.I = ir.data();
+    std::vector<int> jr = t["J"];
+    p.J = jr.data();
+    std::vector<int> vr = t["V"];
+    p.V = vr.data();
+    std::vector<double> fr = t["f"];
+    p.f = fr.data();
+    std::vector<double> dr = t["D"];
+    p.D = dr.data();
+
+    // verbose logging
+    fprintf(stdout, "number of nodes: %d, edges: %d, total capacity: %f",
+            p.n, p.m, p.C);
+
+    return p;
 }

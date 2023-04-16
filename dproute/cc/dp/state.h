@@ -10,27 +10,34 @@
 
 class state {
 public:
-    int s{};
-    double v{};
-    double t{};
+    int s{};    // current position
+    double v{}; // value function
+    double t{}; // accumulated time
+    double c{}; // accumulated used capacity
     std::unordered_set<int> unv{};
 
     state() {
         this->v = 0.0;
         this->s = 0;
         this->t = 0.0;
+        this->c = 0.0;
         this->unv = std::unordered_set<int>();
     };
 
-    state(int, double, double, const int *, int);
-    state(int s, double v, double t, std::unordered_set<int> unc);
+    state(
+            int, double, double, double,
+            const int *, int // initialize unvisited via a data buffer.
+    );
+
+    state(int s, double v, double t, double c, std::unordered_set<int> unc);
 
     state(state const &s);
 
     std::string to_string() const;
 
     state apply(const action &ac);
-    state apply();
+
+    double apply();
 };
 
 

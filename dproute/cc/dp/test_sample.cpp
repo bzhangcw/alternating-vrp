@@ -23,7 +23,22 @@ int main(int argc, char *argv[]) {
      * @date: 2021/02/05
      *
      * */
-//    nlohmann::json test = parse_json(argv[1]); // benchmark stored at "src/test/test.json"
+    nlohmann::json test = parse_json(argv[1]); // benchmark stored at "src/test/test.json"
     problem_data p = parse_data(argv[1]);
+    run_dp_single_sol(
+            p.n,
+            p.m,
+            p.f,
+            p.D,
+            p.I,
+            p.J,
+            p.V,
+            p.c,
+            p.T,
+            p.a,
+            p.b,
+            p.C,
+            true
+    );
     return 0;
 }

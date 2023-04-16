@@ -12,15 +12,18 @@ action::action(const action &action) {
     *this = action;
 }
 
-action::action(int i, int j, double f, double t) {
+action::action(int i, int j, double f, double t, double c) {
     this->i = i;
     this->j = j;
     this->f = f;
     this->t = t;
+    this->c = c;
+}
+
+std::string action::to_string() {
+    return std::to_string(this->i) + std::to_string(this->j) + std::to_string(this->f);
 }
 
 //std::string action::to_string() const {
-//    return std::to_string(
-//            fprintf(stdout, "(%d,%d):%.1e", this->i, this->j, this->f)
-//    );
+//
 //}
