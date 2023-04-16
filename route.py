@@ -90,7 +90,7 @@ class Route:
             self.capa = self.m.addConstr(
                 (
                         quicksum(
-                        vrp.c[t] * self.x[s, t]
+                            vrp.c[t] * self.x[s, t]
                             for s in vrp.V
                             for t in vrp.out_neighbours(s)
                             if s != t and t != vrp.p
@@ -101,17 +101,17 @@ class Route:
             # '''constraint_6: time-windows and also eliminating sub-tours'''
             self.tw_lb = self.m.addConstrs(
                 (vrp.a[s] <= self.w[s] for s in vrp.V),
-                )
+            )
             self.tw_ub = self.m.addConstrs(
                 (self.w[s] <= vrp.b[s] for s in vrp.V),
-                )
+            )
 
             M = 1e5
             self.tw = self.m.addConstrs(
-                (self.w[s] + vrp.T[s, t] +vrp.service_time[s] - M * (1 - self.x[s, t]) <= self.w[t]
+                (self.w[s] + vrp.T[s, t] + vrp.service_time[s] - M * (1 - self.x[s, t]) <= self.w[t]
                  for s in vrp.V
                  for t in vrp.out_neighbours(s) if t != 0),
-                )
+            )
 
         else:
             raise ValueError("unknown mode")
@@ -229,6 +229,29 @@ class Route:
         )
 
         pass
+
+    def solve_primal_by_dp(self, c, *args, **kwargs):
+        data = self.dump_to_json(c)
+        import json
+        json.dump(data, open("/tmp/sample1.json", "w"))
+
+    def dump_to_json(self, c, *args, **kwargs):
+        data = {}
+        E = np.array(list(self.vrp.d.keys()), np.int)
+        data["f"] = (c - 1e3).tolist()
+        data["D"] = list(self.vrp.d.values())
+        data["I"] = E[:, 0].tolist()
+        data["J"] = E[:, 1].tolist()
+        data["c"] = self.vrp.c
+        data["C"] = self.vrp.C
+        data["a"] = self.vrp.a
+        data["b"] = self.vrp.b
+        data["V"] = self.vrp.V
+        data["T"] = list(self.vrp.T.values())
+
+        p, _ = self.visualize(self.solve_primal_by_tsp(c - 1e3, 2))
+        data['p'] = p
+        return data
 
 
 if __name__ == "__main__":

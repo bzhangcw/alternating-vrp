@@ -660,9 +660,9 @@ def optimize(bcdpar: BCDParams, vrps: Tuple[VRP, VRP], route: Route):
                         # IN THIS MODE, YOU ALSO HAVE w,
                         # otherwise, you update in the after bcd for x
                         #   if it is a VRPTW
-                        _x = route.solve_primal_by_tsp(_d.flatten(), mode=2)
-                        # wk[idx] = _w = _proj(xk[idx], theta[idx])
-                        # raise ValueError("not implemented")
+                        # _x = route.solve_primal_by_tsp(_d.flatten(), mode=2)
+                        _x = route.solve_primal_by_dp(_d.flatten(), mode=2)
+
                     elif bcdpar.dual_method == DualSubproblem.Assignment:
                         _x = route.solve_primal_by_assignment(_d.flatten(), mode=0)
                     elif bcdpar.dual_method == DualSubproblem.CapaAssignment:
