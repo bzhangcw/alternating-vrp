@@ -313,6 +313,7 @@ class VRP:
         solution = []
         cc = np.array(self.c)
         for xk in x:
+
             e = xk.nonzero()[0]
             edges = [self.E[ee] for ee in e]
             edges_dict = dict(edges)
@@ -327,10 +328,12 @@ class VRP:
                     break
                 i = nx
 
-            solution.append([nodes, len(nodes), len(edges), cc[nodes].sum()])
+            solution.append([nodes, len(nodes), len(edges), cc[nodes].sum(), sum(self.d[e] for e in edges) ])
 
-        df = pd.DataFrame(solution, columns=['route-r', '|r|', '|Er|', 'sum(c)'])
+        df = pd.DataFrame(solution, columns=['route-r', '|r|', '|Er|', 'sum(c)', 'cost'])
         print(df.to_markdown())
+        print(f"total cost: {df.cost.sum():.2f}")
+
         pass
 
 

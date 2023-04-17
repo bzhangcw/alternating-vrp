@@ -14,9 +14,11 @@
 bool bool_valid_route(state s, double C, double lb, double ub) {
     if (s.c > C) {
         return false;
-    } else if (s.t < lb) { return false; }
-    else if (s.t > ub) { return false; }
-    else {
+    } else if (s.t > ub) {
+        return false;
+    } else if (s.t < lb) {
+        return false;
+    } else {
         return true;
     }
 }
@@ -45,6 +47,46 @@ void void_run_dp_single_sol(
         double *b,
         double C = 200.0,
         bool verbose = false
+) {
+    using namespace std;
+    auto ac = run_dp_single(n, m, f, D, I, J, V, c, T, S, a, b, C, verbose, false);
+    if (verbose) {
+        cout << "@best policy:" <<
+             endl;
+        for (auto cc: ac)
+            cout << cc.to_string() << "=" <<
+                 endl;
+    }
+}
+
+std::vector<int>
+run_dp(int n, int m, double *f, double *D, int *I, int *J, int *V, double *c, double *T, double *S, double *a,
+       double *b, double C, bool verbose, bool inexact=false) {
+    auto ac = run_dp_single(n, m, f, D, I, J, V, c, T, S, a, b, C, verbose, inexact);
+    std::vector<int> ans{};
+    for (auto cc: ac) {
+        ans.push_back(cc.i);
+    }
+    return ans;
+}
+
+
+std::vector<action> run_dp_single(
+        int n,
+        int m,
+        double *f,
+        double *D,
+        int *I,
+        int *J,
+        int *V,
+        double *c,
+        double *T,
+        double *S,
+        double *a,
+        double *b,
+        double C = 200.0,
+        bool verbose = false,
+        bool inexact = false
 ) {
     /*
      * define containers
@@ -93,26 +135,27 @@ void void_run_dp_single_sol(
 //            queue.pop();
 //            continue;
 //        }
-#if DPVERBOSE
-        cout << s.to_string() << endl;
-#endif
+        if (verbose) { cout << s.to_string() << endl; }
+
         auto _tails = tail_dict[k];
         // generating tail problems
-        if (!_tails.empty()) {
-            // tail problems already defined
+        if (!_tails.empty() || (value_dict.find(k) != value_dict.end())) {
+            // tail problems already defined or there is none
         } else {
             // this gives new tail problems
             for (auto &j: s.unv) {
                 if ((s.s == 0) && (j == 0)) continue;
 
-//                double cost = Dm(s.s, j);
-//                if (cost >= 0) continue;
+                double cost = Dm(s.s, j);
+                if (inexact) {
+                    if (cost >= 0 and s.s != 0 and not(j == 0)) continue;
+                }
 
                 int eid = Ex(s.s, j);
                 action ac = action(
                         s.s,
                         j,
-                        Dm(s.s, j),
+                        cost,
                         T[eid],
                         c[j]
                 );
@@ -122,28 +165,23 @@ void void_run_dp_single_sol(
 //                string new_state_k = new_state.to_string();
                 double lb = a[j];
                 double ub = b[j];
+                new_state.adjust(lb, ub, b);
                 if (!bool_valid_route(new_state, C, lb, ub)) {
 //                if (!bool_valid_route(new_state, C)) {
                     continue;
                 }
 
                 auto new_tail = tail(new_state, ac);
-#if DPVERBOSE
-                fprintf(
-                        stdout,
-                        "---\n|--action: %s \n|--state: %s\n|--tail: %s\n",
-                        ac.to_string().c_str(),
-                        new_state.to_string().c_str(),
-                        new_tail.to_string().c_str()
-                );
+                if (verbose) {
+                    fprintf(
+                            stdout,
+                            "---\n|--action: %s \n|--state: %s\n|--tail: %s\n",
+                            ac.to_string().c_str(),
+                            new_state.to_string().c_str(),
+                            new_tail.to_string().c_str()
+                    );
 
-#endif
-//                auto got = value_dict.find(new_state_k);
-//                if (got == value_dict.end()) {
-//                    // not exists
-//                    queue.insert(new_state);
-//                }
-
+                }
                 _tails.push_back(new_tail);
             }
 
@@ -221,30 +259,8 @@ void void_run_dp_single_sol(
             cout << cc.to_string() << "=" <<
                  endl;
     }
+    return ac;
 }
-
-
-//std::vector<double> run_dp_single(
-//        int n,     // node size
-//        int m,     // edge size
-//        double *f, // cost array of E
-//        double *D, // distance array of E
-//        int *I,    // i~ of (i,j) := e in E
-//        int *J,    // j~ of (i,j) := e in E
-//        int *V,    // nodes
-//        double *c, // capacity usage
-//        double *T, // time needed to serve
-//        double *a, // lb of time-window
-//        double *b, // ub of time-window
-//        double C,  // capacity
-//) {
-//    auto sol = run_dp_single_sol(
-//            n, m, f, D, I, J,
-//            V, c, T, a, b, C
-//    );
-//    auto array = get_solutions(sol, N, print);
-//    return array;
-//}
 
 
 json parse_json(char *fp) {
@@ -311,3 +327,5 @@ problem_data parse_data(char *fp) {
 
     return p;
 }
+
+

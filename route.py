@@ -230,10 +230,10 @@ class Route:
 
         pass
 
-    def solve_primal_by_dp(self, c, *args, **kwargs):
+    def solve_primal_by_dp(self, c, verbose=False, debugging=False, *args, **kwargs):
         data = {}
         E = np.array(list(self.vrp.d.keys()), np.int)
-        data["f"] = (c - 1e3).tolist()
+        data["f"] = c.tolist()
         data["D"] = list(self.vrp.d.values())
         data["I"] = E[:, 0].tolist()
         data["J"] = E[:, 1].tolist()
@@ -247,15 +247,42 @@ class Route:
         data["m"] = len(c)
         data["n"] = len(self.vrp.V)
         from cpproute.wrapper import solve_by_dp_cc
-        solve_by_dp_cc(
-            data
-        )
+        import json
 
+        _route = solve_by_dp_cc(
+            data, False, False
+        )
+        _edges = zip(_route[:-1], _route[1:])
+        _sol = {k: 1 for k in _edges}
+        x = np.fromiter((_sol.get(k, 0) for k in self.vrp.E), dtype=np.int8).reshape(
+            (-1, 1)
+        )
+        if debugging:
+            json.dump(data, open('/tmp/sample.json', 'w'))
+            if not ((x.T @ c) == (self.solve_primal_by_tsp(c, 2).T @ c)):
+                xp = self.solve_primal_by_tsp(c, 2)
+                p, _ = self.visualize(xp)
+                data['p'] = p
+                data['vg'] = (self.solve_primal_by_tsp(c, 2).T @ c)[0]
+                data['vd'] = (x.T @ c)[0]
+                import json
+                json.dump(data, open('/tmp/sample.json', 'w'))
+
+
+                _route = solve_by_dp_cc(
+                    data, True, False
+                )
+
+                print(_route)
+                print(p)
+                print(data['vg'], data['vd'])
+                raise ValueError("dp not equal to gurobi!")
+        return x
 
     def dump_to_json(self, c, *args, **kwargs):
         data = {}
         E = np.array(list(self.vrp.d.keys()), np.int)
-        data["f"] = (c - 1e3).tolist()
+        data["f"] = c.tolist()
         data["D"] = list(self.vrp.d.values())
         data["I"] = E[:, 0].tolist()
         data["J"] = E[:, 1].tolist()
@@ -269,7 +296,7 @@ class Route:
         data["m"] = len(c)
         data["n"] = len(self.vrp.V)
 
-        p, _ = self.visualize(self.solve_primal_by_tsp(c - 1e3, 2))
+        p, _ = self.visualize(self.solve_primal_by_tsp(c, 2))
         data['p'] = p
         return data
 

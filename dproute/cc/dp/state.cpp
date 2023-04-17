@@ -68,5 +68,17 @@ double state::apply() {
     return 0.0;
 }
 
+void state::adjust(double lb, double ub, double *b) {
+    // first add idle time to fit
+    if (this->t < lb) { this->t = lb; }
+    // filter out nodes if this.t > b[n]
+    this->unv.erase(std::remove_if(
+            this->unv.begin(), this->unv.end(),
+            [&b, this](const int& x) {
+                return b[x] <= this->t; // put your condition here
+            }), this->unv.end());
+
+}
+
 
 

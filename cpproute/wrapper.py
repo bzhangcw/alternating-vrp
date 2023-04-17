@@ -19,8 +19,8 @@ def convert_to_c_arr_int(size, lambda_k):
     return c_arr
 
 
-def solve_by_dp_cc(data, verbose=True):
-    sol = void_run_dp_single_sol(
+def solve_by_dp_cc(data, verbose=True, inexact=False):
+    sol = run_dp(
         data['n'],
         data['m'],
         convert_to_c_arr(data['m'], data['f']),
@@ -35,6 +35,7 @@ def solve_by_dp_cc(data, verbose=True):
         convert_to_c_arr(data['n'], data['b']),
         data['C'],
         verbose,
+        inexact,
     )
 
-    return sol
+    return [*sol, 0]

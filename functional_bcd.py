@@ -167,7 +167,6 @@ class BCDParams(object):
         """
     )
 
-
     def __init__(self):
         self.kappa = 0.2
         self.alpha = 1.0
@@ -510,8 +509,8 @@ def optimize(bcdpar: BCDParams, vrps: Tuple[VRP, VRP], route: Route):
     # nA={idx: 0 for idx, _A in enumerate(A)}
     # for idx in range(nblock):
     #     nA[idx] = scipy.sparse.linalg.norm(A[idx])
-    tau = 6.05 / ( scipy.sparse.linalg.norm(A1) * rhol)
-    sigma  = bcdpar.sigma
+    tau = 6.05 / (scipy.sparse.linalg.norm(A1) * rhol)
+    sigma = bcdpar.sigma
     tsig = bcdpar.tsig
     rhofact1 = 0.9
     ctol = gtol = 1e-6
@@ -661,7 +660,7 @@ def optimize(bcdpar: BCDParams, vrps: Tuple[VRP, VRP], route: Route):
                         # otherwise, you update in the after bcd for x
                         #   if it is a VRPTW
                         # _x = route.solve_primal_by_tsp(_d.flatten(), mode=2)
-                        _x = route.solve_primal_by_dp(_d.flatten(), mode=2)
+                        _x = route.solve_primal_by_dp(_d.flatten(), mode=2, verbose=bcdpar.verbosity > 2)
 
                     elif bcdpar.dual_method == DualSubproblem.Assignment:
                         _x = route.solve_primal_by_assignment(_d.flatten(), mode=0)
@@ -753,8 +752,8 @@ def optimize(bcdpar: BCDParams, vrps: Tuple[VRP, VRP], route: Route):
             # print(np.count_nonzero(_Ax-b))
             _log_line = \
                 _LOG_FORMAT.format(
-                k, _iter_time, cx, ub_bst, lobj, eps_pfeas_Axb, eps_pfeas_cap, eps_fp, rhol, rhom, tau, it + 1
-            )
+                    k, _iter_time, cx, ub_bst, lobj, eps_pfeas_Axb, eps_pfeas_cap, eps_fp, rhol, rhom, tau, it + 1
+                )
             print(_log_line)
             break
 

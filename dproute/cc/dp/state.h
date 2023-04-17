@@ -37,6 +37,7 @@ public:
 
     state apply(const action &, double);
 
+    void adjust(double, double, double *);
     double apply();
 };
 

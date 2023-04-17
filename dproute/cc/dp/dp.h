@@ -61,7 +61,7 @@ void void_run_dp_single_sol(
         bool verbose
 );
 
-std::vector<int>
+std::vector<action>
 run_dp_single(
         int n,     // node size
         int m,     // edge size
@@ -75,8 +75,30 @@ run_dp_single(
         double *S, // time needed to serve
         double *a, // lb of time-window
         double *b, // ub of time-window
-        double C  // capacity
+        double C,  // capacity
+        bool verbose,
+        bool inexact
 );
+
+std::vector<int>
+run_dp(
+        int n,     // node size
+        int m,     // edge size
+        double *f, // cost array of E
+        double *D, // distance array of E
+        int *I,    // i~ of (i,j) := e in E
+        int *J,    // j~ of (i,j) := e in E
+        int *V,    // nodes
+        double *c, // capacity usage
+        double *T, // time needed to travel
+        double *S, // time needed to serve
+        double *a, // lb of time-window
+        double *b, // ub of time-window
+        double C,  // capacity
+        bool verbose,
+        bool inexact
+);
+
 
 problem_data parse_data(const std::string &fp);
 
