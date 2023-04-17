@@ -20,36 +20,39 @@ namespace std
 #define SWIG_FILE_WITH_INIT
 
 #include "dp.h"
-#include "sol.h"
 
 %}
 
-
-std::vector<double> run_dp_single(
-        double *lambda,
-        double c,
-        int N,
-        double a,
-        double b,
-        double L,
-        int tau,
-        double s0,
-        bool print,
-        bool truncate // whether we truncate strictly @stage N
+void void_run_dp_single_sol(
+        int n,     // node size
+        int m,     // edge size
+        double *f, // cost array of E
+        double *D, // distance array of E
+        int *I,    // i~ of (i,j) := e in E
+        int *J,    // j~ of (i,j) := e in E
+        int *V,    // nodes
+        double *c, // capacity usage
+        double *T, // time needed to travel
+        double *S, // time needed to serve
+        double *a, // lb of time-window
+        double *b, // ub of time-window
+        double C,  // capacity
+        bool verbose
 );
 
-
-std::vector<double> run_dp_batch(
-        int size,
-        double *lambda,
-        double *c,
-        int N,
-        double *a,
-        double *b,
-        double L,
-        int *tau,
-        double *s0,
-        bool print,
-        bool truncate
-);
-
+//std::vector<int>
+//run_dp_single(
+//        int n,     // node size
+//        int m,     // edge size
+//        double *f, // cost array of E
+//        double *D, // distance array of E
+//        int *I,    // i~ of (i,j) := e in E
+//        int *J,    // j~ of (i,j) := e in E
+//        int *V,    // nodes
+//        double *c, // capacity usage
+//        double *T, // time needed to travel
+//        double *S, // time needed to serve
+//        double *a, // lb of time-window
+//        double *b, // ub of time-window
+//        double C  // capacity
+//);

@@ -12,3 +12,4 @@ set(CMAKE_CXX_STANDARD_REQUIRED True)
 # add subdirectories
 add_subdirectory(cc)
 add_subdirectory(third-party)
+add_subdirectory(python)

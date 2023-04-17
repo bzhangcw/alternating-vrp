@@ -5,8 +5,8 @@
 #ifndef REPAIRCPP_STATE_H
 #define REPAIRCPP_STATE_H
 
-# include "action.h"
-# include<unordered_set>
+#include "action.h"
+#include<vector>
 
 class state {
 public:
@@ -14,14 +14,14 @@ public:
     double v{}; // value function
     double t{}; // accumulated time
     double c{}; // accumulated used capacity
-    std::unordered_set<int> unv{};
+    std::vector<int> unv{};
 
     state() {
         this->v = 0.0;
         this->s = 0;
         this->t = 0.0;
         this->c = 0.0;
-        this->unv = std::unordered_set<int>();
+        this->unv = std::vector<int>();
     };
 
     state(
@@ -29,13 +29,13 @@ public:
             const int *, int // initialize unvisited via a data buffer.
     );
 
-    state(int s, double v, double t, double c, std::unordered_set<int> unc);
+    state(int s, double v, double t, double c, std::vector<int> unc);
 
     state(state const &s);
 
     std::string to_string() const;
 
-    state apply(const action &ac);
+    state apply(const action &, double);
 
     double apply();
 };

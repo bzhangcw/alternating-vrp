@@ -231,9 +231,26 @@ class Route:
         pass
 
     def solve_primal_by_dp(self, c, *args, **kwargs):
-        data = self.dump_to_json(c)
-        import json
-        json.dump(data, open("/tmp/sample1.json", "w"))
+        data = {}
+        E = np.array(list(self.vrp.d.keys()), np.int)
+        data["f"] = (c - 1e3).tolist()
+        data["D"] = list(self.vrp.d.values())
+        data["I"] = E[:, 0].tolist()
+        data["J"] = E[:, 1].tolist()
+        data["c"] = self.vrp.c
+        data["C"] = self.vrp.C
+        data["a"] = self.vrp.a
+        data["b"] = self.vrp.b
+        data["V"] = self.vrp.V
+        data["T"] = list(self.vrp.T.values())
+        data["S"] = self.vrp.service_time
+        data["m"] = len(c)
+        data["n"] = len(self.vrp.V)
+        from cpproute.wrapper import solve_by_dp_cc
+        solve_by_dp_cc(
+            data
+        )
+
 
     def dump_to_json(self, c, *args, **kwargs):
         data = {}
@@ -248,6 +265,9 @@ class Route:
         data["b"] = self.vrp.b
         data["V"] = self.vrp.V
         data["T"] = list(self.vrp.T.values())
+        data["S"] = self.vrp.service_time
+        data["m"] = len(c)
+        data["n"] = len(self.vrp.V)
 
         p, _ = self.visualize(self.solve_primal_by_tsp(c - 1e3, 2))
         data['p'] = p

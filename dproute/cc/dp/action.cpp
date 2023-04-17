@@ -21,7 +21,11 @@ action::action(int i, int j, double f, double t, double c) {
 }
 
 std::string action::to_string() {
-    return std::to_string(this->i) + std::to_string(this->j) + std::to_string(this->f);
+    return std::to_string(this->i)
+           + "-" + std::to_string(this->j)
+           + "@" + std::to_string(this->c)
+           + "/" + std::to_string(this->t)
+           + ":" + std::to_string(this->f);
 }
 
 //std::string action::to_string() const {

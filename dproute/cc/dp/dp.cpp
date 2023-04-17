@@ -9,6 +9,7 @@
 //}
 
 
+#define DPVERBOSE 1
 
 bool bool_valid_route(state s, double C, double lb, double ub) {
     if (s.c > C) {
@@ -29,7 +30,7 @@ bool bool_valid_route(state s, double C) {
 }
 
 
-void run_dp_single_sol(
+void void_run_dp_single_sol(
         int n,
         int m,
         double *f,
@@ -39,6 +40,7 @@ void run_dp_single_sol(
         int *V,
         double *c,
         double *T,
+        double *S,
         double *a,
         double *b,
         double C = 200.0,
@@ -85,22 +87,27 @@ void run_dp_single_sol(
         auto kv_pair = queue.get_last();
         string k = kv_pair.first;
         state s = kv_pair.second;
-        if (s.unv.empty()) {
-            // which means you reach the last stage
-            value_dict[k] = s.apply();
-            queue.pop();
-            continue;
-        }
+//        if (s.unv.empty() || s.c > 0) {
+//            // which means you reach the last stage
+//            value_dict[k] = 0.0;
+//            queue.pop();
+//            continue;
+//        }
+#if DPVERBOSE
+        cout << s.to_string() << endl;
+#endif
         auto _tails = tail_dict[k];
+        // generating tail problems
         if (!_tails.empty()) {
-            /*
-             * tail problems already defined
-             * */
+            // tail problems already defined
         } else {
-            /*
-             * this gives new tail problems
-             * */
+            // this gives new tail problems
             for (auto &j: s.unv) {
+                if ((s.s == 0) && (j == 0)) continue;
+
+//                double cost = Dm(s.s, j);
+//                if (cost >= 0) continue;
+
                 int eid = Ex(s.s, j);
                 action ac = action(
                         s.s,
@@ -109,27 +116,61 @@ void run_dp_single_sol(
                         T[eid],
                         c[j]
                 );
-                auto new_state = s.apply(ac);
+                auto new_state = s.apply(ac, S[j]);
+
                 // what is a new state?
-                string new_state_k = new_state.to_string();
+//                string new_state_k = new_state.to_string();
                 double lb = a[j];
                 double ub = b[j];
-//                if (!bool_valid_route(new_state_k, C, lb, ub)) {
-                if (!bool_valid_route(new_state, C)) {
+                if (!bool_valid_route(new_state, C, lb, ub)) {
+//                if (!bool_valid_route(new_state, C)) {
                     continue;
                 }
+
                 auto new_tail = tail(new_state, ac);
-                auto got = value_dict.find(new_state_k);
-                if (got == value_dict.end()) {
-                    // not exists
-                    queue.insert(new_state);
-                }
-                state_dict[new_state_k] = new_state;
+#if DPVERBOSE
+                fprintf(
+                        stdout,
+                        "---\n|--action: %s \n|--state: %s\n|--tail: %s\n",
+                        ac.to_string().c_str(),
+                        new_state.to_string().c_str(),
+                        new_tail.to_string().c_str()
+                );
+
+#endif
+//                auto got = value_dict.find(new_state_k);
+//                if (got == value_dict.end()) {
+//                    // not exists
+//                    queue.insert(new_state);
+//                }
+
                 _tails.push_back(new_tail);
             }
+
             tail_dict[k] = _tails;
+            if (_tails.empty()) {
+                // no tail problem, summarize
+                value_dict[k] = 0.0;
+            } else {
+                for (auto tl: _tails) {
+                    auto new_state_k = tl.st.to_string();
+                    if (tl.st.s == 0) {
+                        // back to depot
+                        value_dict[new_state_k] = 0.0;
+                        continue;
+                    }
+                    auto got = value_dict.find(new_state_k);
+                    if (got == value_dict.end()) {
+                        // not exists
+                        state_dict[new_state_k] = tl.st;
+                        queue.insert(tl.st);
+                    }
+                }
+
+            }
             continue;
         }
+
         /*
          * all tail problems has been proposed,
          * do value eval
@@ -155,11 +196,7 @@ void run_dp_single_sol(
         tail_star_dict[k] = best_tail;
         queue.pop();
     }
-
-    /*
-     * generate the best policy
-     *
-     */
+    // generate the best policy
     string current_k = k_init;
     vector<action> ac;
     while (true) {
@@ -178,9 +215,11 @@ void run_dp_single_sol(
     }
     if (verbose) {
         cout << "@best value:" << value_dict[k_init] << endl;
-        cout << "@best policy:" << endl;
+        cout << "@best policy:" <<
+             endl;
         for (auto cc: ac)
-            cout << cc.to_string() << endl;
+            cout << cc.to_string() << "=" <<
+                 endl;
     }
 }
 
@@ -229,29 +268,19 @@ problem_data parse_data(const std::string &fp) {
     p.C = t["C"];
     p.n = t["n"];
     p.m = t["m"];
-
-    std::vector<double> cr = t["c"];
-    p.c = cr.data();
-    std::vector<double> ar = t["a"];
-    p.a = ar.data();
-    std::vector<double> br = t["b"];
-    p.b = br.data();
-    std::vector<double> tr = t["T"];
-    p.T = tr.data();
-
-    std::vector<int> ir = t["I"];
-    p.I = ir.data();
-    std::vector<int> jr = t["J"];
-    p.J = jr.data();
-    std::vector<int> vr = t["V"];
-    p.V = vr.data();
-    std::vector<double> fr = t["f"];
-    p.f = fr.data();
-    std::vector<double> dr = t["D"];
-    p.D = dr.data();
+    p.c = t["c"].get<std::vector<double>>();
+    p.a = t["a"].get<std::vector<double>>();
+    p.b = t["b"].get<std::vector<double>>();
+    p.T = t["T"].get<std::vector<double>>();
+    p.S = t["S"].get<std::vector<double>>();
+    p.I = t["I"].get<std::vector<int>>();
+    p.J = t["J"].get<std::vector<int>>();
+    p.V = t["V"].get<std::vector<int>>();
+    p.f = t["f"].get<std::vector<double>>();
+    p.D = t["D"].get<std::vector<double>>();
 
     // verbose logging
-    fprintf(stdout, "number of nodes: %d, edges: %d, total capacity: %f",
+    fprintf(stdout, "number of nodes: %d, edges: %d, total capacity: %f\n",
             p.n, p.m, p.C);
 
     return p;
@@ -265,29 +294,19 @@ problem_data parse_data(char *fp) {
     p.C = t["C"];
     p.n = t["n"];
     p.m = t["m"];
-
-    std::vector<double> cr = t["c"];
-    p.c = cr.data();
-    std::vector<double> ar = t["a"];
-    p.a = ar.data();
-    std::vector<double> br = t["b"];
-    p.b = br.data();
-    std::vector<double> tr = t["T"];
-    p.T = tr.data();
-
-    std::vector<int> ir = t["I"];
-    p.I = ir.data();
-    std::vector<int> jr = t["J"];
-    p.J = jr.data();
-    std::vector<int> vr = t["V"];
-    p.V = vr.data();
-    std::vector<double> fr = t["f"];
-    p.f = fr.data();
-    std::vector<double> dr = t["D"];
-    p.D = dr.data();
+    p.c = t["c"].get<std::vector<double>>();
+    p.a = t["a"].get<std::vector<double>>();
+    p.b = t["b"].get<std::vector<double>>();
+    p.T = t["T"].get<std::vector<double>>();
+    p.S = t["S"].get<std::vector<double>>();
+    p.I = t["I"].get<std::vector<int>>();
+    p.J = t["J"].get<std::vector<int>>();
+    p.V = t["V"].get<std::vector<int>>();
+    p.f = t["f"].get<std::vector<double>>();
+    p.D = t["D"].get<std::vector<double>>();
 
     // verbose logging
-    fprintf(stdout, "number of nodes: %d, edges: %d, total capacity: %f",
+    fprintf(stdout, "number of nodes: %d, edges: %d, total capacity: %f\n",
             p.n, p.m, p.C);
 
     return p;

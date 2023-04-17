@@ -1,17 +1,23 @@
 //
 // Created by C. Zhang on 2021/2/4.
 //
-#include <string>
+
 #include "state.h"
+#include <string>
+#include <vector>
+#include <algorithm>
+#include <sstream>
 
 state::state(int s, double v, double t, double c, const int *vs, int n) {
     this->v = v; // v(s)
     this->s = s; // s
     this->t = t; // vs
     this->c = c; // vs
-    this->unv = std::unordered_set<int>(vs, vs + n);
+    std::vector<int> vec(vs, vs + n);
+    this->unv = vec;
 }
-state::state(int s, double v, double t, double c, std::unordered_set<int> unc) {
+
+state::state(int s, double v, double t, double c, std::vector<int> unc) {
     this->v = v; // v(s)
     this->s = s; // s
     this->t = t; // vs
@@ -25,10 +31,15 @@ state::state(const state &s) {
 
 std::string state::to_string() const {
 
-    return std::to_string(this->s)
-           + ":" + std::to_string(this->t)
-           + ":" + std::to_string(this->c)
-           + "@" + std::to_string(this->v);
+    std::stringstream result;
+    std::copy(
+            this->unv.begin(),
+            this->unv.end(),
+            std::ostream_iterator<int>(result, "-"));
+    return std::to_string(this->s)         // current
+           + ":" + std::to_string(this->c) // used capacity
+           + "/" + std::to_string(this->t) // time
+           + "@" + result.str();           // left nodes
 
 }
 
@@ -37,18 +48,21 @@ bool operator==(const state &lhs, const state &rhs) {
 }
 
 
-state state::apply(const action &ac) {
-    auto cc = std::unordered_set<int>(this->unv);
-    cc.erase(ac.i);
+state state::apply(const action &ac, double node_time) {
+    auto cc = std::vector<int>(this->unv);
+    auto position = std::find(cc.begin(), cc.end(), ac.j);
+    if (position != cc.end()) // == cc.end() means the element was not found
+        cc.erase(position);
     state s = state(
             ac.j,
             this->v + ac.f,
-            this->t + ac.t,
+            this->t + ac.t + node_time,
             this->c + ac.c,
             cc
     );
     return s;
 }
+
 
 double state::apply() {
     return 0.0;

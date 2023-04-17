@@ -25,18 +25,19 @@ int main(int argc, char *argv[]) {
      * */
     nlohmann::json test = parse_json(argv[1]); // benchmark stored at "src/test/test.json"
     problem_data p = parse_data(argv[1]);
-    run_dp_single_sol(
+    void_run_dp_single_sol(
             p.n,
             p.m,
-            p.f,
-            p.D,
-            p.I,
-            p.J,
-            p.V,
-            p.c,
-            p.T,
-            p.a,
-            p.b,
+            p.f.data(),
+            p.D.data(),
+            p.I.data(),
+            p.J.data(),
+            p.V.data(),
+            p.c.data(),
+            p.T.data(),
+            p.S.data(),
+            p.a.data(),
+            p.b.data(),
             p.C,
             true
     );
