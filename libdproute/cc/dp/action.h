@@ -6,7 +6,8 @@
 #define DPROUTING_ACTION_H
 
 #include <utility>
-
+#include <string>
+#include <vector>
 class action {
 public:
     int i{};

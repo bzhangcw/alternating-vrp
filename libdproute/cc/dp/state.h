@@ -6,7 +6,8 @@
 #define REPAIRCPP_STATE_H
 
 #include "action.h"
-#include<vector>
+#include <vector>
+#include <iterator>
 
 class state {
 public:
