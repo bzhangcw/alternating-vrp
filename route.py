@@ -230,7 +230,7 @@ class Route:
 
         pass
 
-    def solve_primal_by_dp(self, c, verbose=False, debugging=False, *args, **kwargs):
+    def solve_primal_by_dp(self, c, verbose=False, debugging=False, inexact=False, *args, **kwargs):
         data = {}
         E = np.array(list(self.vrp.d.keys()), np.int)
         data["f"] = c.tolist()
@@ -249,9 +249,12 @@ class Route:
         from pydproute.wrapper import solve_by_dp_cc
         import json
 
-        _route = solve_by_dp_cc(
-            data, False, False
-        )
+        try:
+            _route = solve_by_dp_cc(
+                data, verbose, inexact=False
+            )
+        except:
+            raise ValueError("libdproute error")
         _edges = zip(_route[:-1], _route[1:])
         _sol = {k: 1 for k in _edges}
 

@@ -660,7 +660,7 @@ def optimize(bcdpar: BCDParams, vrps: Tuple[VRP, VRP], route: Route):
                         # otherwise, you update in the after bcd for x
                         #   if it is a VRPTW
                         # _x = route.solve_primal_by_tsp(_d.flatten(), mode=2)
-                        _x = route.solve_primal_by_dp(_d.flatten(), mode=2, verbose=bcdpar.verbosity > 2)
+                        _x = route.solve_primal_by_dp(_d.flatten(), mode=2, verbose=bcdpar.verbosity > 2, inexact=((it <= 1) or (eps_pfeas_Axb > 2.0)))
 
                     elif bcdpar.dual_method == DualSubproblem.Assignment:
                         _x = route.solve_primal_by_assignment(_d.flatten(), mode=0)

@@ -97,9 +97,9 @@ if __name__ == "__main__":
     seed = 1234
     vrp.m.setParam('Seed', seed)
     vrp.m.Params.TimeLimit = params_bcd.time_limit
-    vrp.solve()
-    print('Gurobi Running time: %s Seconds' % (time.time() - start_time))
-    vrp.visualize(x=None)
+    # vrp.solve()
+    # print('Gurobi Running time: %s Seconds' % (time.time() - start_time))
+    # vrp.visualize(x=None)
     # vrp.m.write("vrp.sol")
     # print(vrp.m.objVal)
 
@@ -110,6 +110,6 @@ if __name__ == "__main__":
     # vrp.visualize(x=xk)
 
     print("*" * 50)
-    vrp.visualize(x=None)
+    # vrp.visualize(x=None)
     vrp.visualize(x=xk)
     print("*" * 50)
