@@ -230,7 +230,7 @@ class Route:
 
         pass
 
-    def solve_primal_by_dp(self, c, verbose=False, debugging=True, *args, **kwargs):
+    def solve_primal_by_dp(self, c, verbose=False, debugging=False, *args, **kwargs):
         data = {}
         E = np.array(list(self.vrp.d.keys()), np.int)
         data["f"] = c.tolist()

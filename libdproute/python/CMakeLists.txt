@@ -59,8 +59,8 @@ endif()
 
 add_custom_target(
         deploy
-        COMMAND cp -r "${CMAKE_BINARY_DIR}/lib/*" ${PROJECT_SOURCE_DIR}/../cpproute
-        COMMAND cp -r "${CMAKE_BINARY_DIR}/python/*.py" ${PROJECT_SOURCE_DIR}/../cpproute/
+        COMMAND cp -r "${CMAKE_BINARY_DIR}/lib/*" ${PROJECT_SOURCE_DIR}/../pydproute
+        COMMAND cp -r "${CMAKE_BINARY_DIR}/python/*.py" ${PROJECT_SOURCE_DIR}/../pydproute/
         DEPENDS pydp
 )
 
