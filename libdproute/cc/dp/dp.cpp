@@ -46,23 +46,22 @@ void void_run_dp_single_sol(
         double *a,
         double *b,
         double C = 200.0,
-        bool verbose = false
+        bool verbose = true,
+        bool inexact = true,
+        double timelimit = 20.0
 ) {
     using namespace std;
-    auto ac = run_dp_single(n, m, f, D, I, J, V, c, T, S, a, b, C, verbose, false);
-    if (verbose) {
-        cout << "@best policy:" <<
-             endl;
-        for (auto cc: ac)
-            cout << cc.to_string() << "=" <<
-                 endl;
-    }
+    auto ac = run_dp_single(
+            n, m, f, D, I, J, V, c, T, S, a, b, C, verbose, inexact, timelimit
+    );
 }
 
 std::vector<int>
 run_dp(int n, int m, double *f, double *D, int *I, int *J, int *V, double *c, double *T, double *S, double *a,
-       double *b, double C, bool verbose, bool inexact=false) {
-    auto ac = run_dp_single(n, m, f, D, I, J, V, c, T, S, a, b, C, verbose, inexact);
+       double *b, double C, bool verbose, bool inexact = false, double timelimit = 20.0) {
+    auto ac = run_dp_single(
+            n, m, f, D, I, J, V, c, T, S, a, b, C, verbose, inexact, timelimit
+    );
     std::vector<int> ans{};
     for (auto cc: ac) {
         ans.push_back(cc.i);
@@ -86,7 +85,8 @@ std::vector<action> run_dp_single(
         double *b,
         double C = 200.0,
         bool verbose = false,
-        bool inexact = false
+        bool inexact = false,
+        double timelimit = 20.0
 ) {
     /*
      * define containers
@@ -97,6 +97,9 @@ std::vector<action> run_dp_single(
     value_map value_dict = value_map();
     tail_map tail_dict = tail_map();
     best_tail_map tail_star_dict = best_tail_map();
+    time_t start_timer{};
+    time_t end_timer{};
+    time(&start_timer);
 
     /* Debug logs
         Eigen::ArrayXd c_arr(N);
@@ -129,6 +132,9 @@ std::vector<action> run_dp_single(
         auto kv_pair = queue.get_last();
         string k = kv_pair.first;
         state s = kv_pair.second;
+        time(&end_timer);
+        auto current_time = difftime(end_timer, start_timer);
+        if (current_time > timelimit) break;
 //        if (s.unv.empty() || s.c > 0) {
 //            // which means you reach the last stage
 //            value_dict[k] = 0.0;
@@ -162,12 +168,10 @@ std::vector<action> run_dp_single(
                 auto new_state = s.apply(ac, S[j]);
 
                 // what is a new state?
-//                string new_state_k = new_state.to_string();
                 double lb = a[j];
                 double ub = b[j];
                 new_state.adjust(lb, ub, b);
                 if (!bool_valid_route(new_state, C, lb, ub)) {
-//                if (!bool_valid_route(new_state, C)) {
                     continue;
                 }
 

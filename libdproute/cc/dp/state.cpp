@@ -74,8 +74,8 @@ void state::adjust(double lb, double ub, double *b) {
     // filter out nodes if this.t > b[n]
     this->unv.erase(std::remove_if(
             this->unv.begin(), this->unv.end(),
-            [&b, this](const int& x) {
-                return b[x] <= this->t; // put your condition here
+            [&b, this](const int &x) {
+                return b[x] <= this->t;
             }), this->unv.end());
 
 }

@@ -230,7 +230,7 @@ class Route:
 
         pass
 
-    def solve_primal_by_dp(self, c, verbose=False, debugging=False, *args, **kwargs):
+    def solve_primal_by_dp(self, c, verbose=False, debugging=True, *args, **kwargs):
         data = {}
         E = np.array(list(self.vrp.d.keys()), np.int)
         data["f"] = c.tolist()
@@ -246,7 +246,7 @@ class Route:
         data["S"] = self.vrp.service_time
         data["m"] = len(c)
         data["n"] = len(self.vrp.V)
-        from cpproute.wrapper import solve_by_dp_cc
+        from pydproute.wrapper import solve_by_dp_cc
         import json
 
         _route = solve_by_dp_cc(
@@ -254,16 +254,17 @@ class Route:
         )
         _edges = zip(_route[:-1], _route[1:])
         _sol = {k: 1 for k in _edges}
+
         x = np.fromiter((_sol.get(k, 0) for k in self.vrp.E), dtype=np.int8).reshape(
             (-1, 1)
         )
         if debugging:
             json.dump(data, open('/tmp/sample.json', 'w'))
-            if not ((x.T @ c) == (self.solve_primal_by_tsp(c, 2).T @ c)):
-                xp = self.solve_primal_by_tsp(c, 2)
+            xp = self.solve_primal_by_tsp(c, 2)
+            if not ((x.T @ c) == (xp.T @ c)):
                 p, _ = self.visualize(xp)
                 data['p'] = p
-                data['vg'] = (self.solve_primal_by_tsp(c, 2).T @ c)[0]
+                data['vg'] = (xp.T @ c)[0]
                 data['vd'] = (x.T @ c)[0]
                 import json
                 json.dump(data, open('/tmp/sample.json', 'w'))

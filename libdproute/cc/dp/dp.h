@@ -58,7 +58,9 @@ void void_run_dp_single_sol(
         double *a, // lb of time-window
         double *b, // ub of time-window
         double C,  // capacity
-        bool verbose
+        bool verbose,
+        bool inexact,
+        double timelimit
 );
 
 std::vector<action>
@@ -77,7 +79,8 @@ run_dp_single(
         double *b, // ub of time-window
         double C,  // capacity
         bool verbose,
-        bool inexact
+        bool inexact,
+        double timelimit
 );
 
 std::vector<int>
@@ -96,7 +99,8 @@ run_dp(
         double *b, // ub of time-window
         double C,  // capacity
         bool verbose,
-        bool inexact
+        bool inexact,
+        double timelimit
 );
 
 

@@ -419,10 +419,7 @@ class IntVector(object):
 _pydp.IntVector_swigregister(IntVector)
 
 
-def void_run_dp_single_sol(n, m, f, D, I, J, V, c, T, S, a, b, C, verbose):
-    return _pydp.void_run_dp_single_sol(n, m, f, D, I, J, V, c, T, S, a, b, C, verbose)
-
-def run_dp(n, m, f, D, I, J, V, c, T, S, a, b, C, verbose, inexact):
-    return _pydp.run_dp(n, m, f, D, I, J, V, c, T, S, a, b, C, verbose, inexact)
+def run_dp(n, m, f, D, I, J, V, c, T, S, a, b, C, verbose, inexact, timelimit):
+    return _pydp.run_dp(n, m, f, D, I, J, V, c, T, S, a, b, C, verbose, inexact, timelimit)
 
 

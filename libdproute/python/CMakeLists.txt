@@ -13,11 +13,6 @@ include(FindConda)
 message(NOTICE "PYTHON INCLUDE: ${PYTHON_INCLUDE_DIRS}")
 message(NOTICE "CPP-DP INCLUDE: ${CPPDP_INCLUDE_DIR}")
 
-# PURE CPP (TEST PATHS etc.)
-add_executable(dp_py main.cpp)
-
-target_include_directories(dp_py PUBLIC ${CPPDP_INCLUDE_DIR} ${EIGEN} "${PROJECT_BINARY_DIR}")
-target_link_libraries(dp_py PRIVATE nlohmann_json::nlohmann_json cppdp)
 
 # SWIG PYTHON LIB
 set_property(SOURCE dp.i PROPERTY CPLUSPLUS ON)
@@ -62,6 +57,12 @@ elseif(UNIX)
             )
 endif()
 
+add_custom_target(
+        deploy
+        COMMAND cp -r "${CMAKE_BINARY_DIR}/lib/*" ${PROJECT_SOURCE_DIR}/../cpproute
+        COMMAND cp -r "${CMAKE_BINARY_DIR}/python/*.py" ${PROJECT_SOURCE_DIR}/../cpproute/
+        DEPENDS pydp
+)
 
 # Variable PYTHON_LIBRARIES can contains keyword `optimized`
 # which won't be interpreted inside a generator expression.

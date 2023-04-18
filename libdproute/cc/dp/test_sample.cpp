@@ -25,6 +25,7 @@ int main(int argc, char *argv[]) {
      * */
     nlohmann::json test = parse_json(argv[1]); // benchmark stored at "src/test/test.json"
     problem_data p = parse_data(argv[1]);
+    bool inexact = argv[2][0] == 'T';
     void_run_dp_single_sol(
             p.n,
             p.m,
@@ -39,7 +40,9 @@ int main(int argc, char *argv[]) {
             p.a.data(),
             p.b.data(),
             p.C,
-            true
+            true,
+            false,
+            20
     );
     return 0;
 }
