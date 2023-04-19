@@ -11,26 +11,28 @@
 
 class state {
 public:
-    int s{};    // current position
-    double v{}; // value function
-    double t{}; // accumulated time
-    double c{}; // accumulated used capacity
+    int s{};     // current position
+    double v{};  // value function
+    double ts{}; // arrival time
+    double te{}; // finish time
+    double c{};  // accumulated used capacity
     std::vector<int> unv{};
 
     state() {
         this->v = 0.0;
         this->s = 0;
-        this->t = 0.0;
+        this->ts = 0.0;
+        this->te = 0.0;
         this->c = 0.0;
         this->unv = std::vector<int>();
     };
 
     state(
-            int, double, double, double,
+            int, double, double, double, double,
             const int *, int // initialize unvisited via a data buffer.
     );
 
-    state(int s, double v, double t, double c, std::vector<int> unc);
+    state(int, double, double, double, double, std::vector<int>);
 
     state(state const &s);
 
@@ -39,6 +41,7 @@ public:
     state apply(const action &, double);
 
     void adjust(double, double, double *);
+
     double apply();
 };
 

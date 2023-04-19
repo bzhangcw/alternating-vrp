@@ -8,19 +8,21 @@
 #include <algorithm>
 #include <sstream>
 
-state::state(int s, double v, double t, double c, const int *vs, int n) {
+state::state(int s, double v, double t, double dt, double c, const int *vs, int n) {
     this->v = v; // v(s)
     this->s = s; // s
-    this->t = t; // vs
+    this->ts = t; // vs
+    this->te = t + dt; // vs
     this->c = c; // vs
     std::vector<int> vec(vs, vs + n);
     this->unv = vec;
 }
 
-state::state(int s, double v, double t, double c, std::vector<int> unc) {
+state::state(int s, double v, double t, double dt, double c, std::vector<int> unc) {
     this->v = v; // v(s)
     this->s = s; // s
-    this->t = t; // vs
+    this->ts = t; // vs
+    this->te = t + dt; // vs
     this->c = c; // vs
     this->unv = unc;
 }
@@ -38,7 +40,7 @@ std::string state::to_string() const {
             std::ostream_iterator<int>(result, "-"));
     return std::to_string(this->s)         // current
            + ":" + std::to_string(this->c) // used capacity
-           + "/" + std::to_string(this->t) // time
+           + "/" + std::to_string(this->ts) // time
            + "@" + result.str();           // left nodes
 
 }
@@ -56,10 +58,12 @@ state state::apply(const action &ac, double node_time) {
     state s = state(
             ac.j,
             this->v + ac.f,
-            this->t + ac.t + node_time,
+            this->te + ac.t,
+            node_time,
             this->c + ac.c,
             cc
     );
+
     return s;
 }
 
@@ -69,13 +73,17 @@ double state::apply() {
 }
 
 void state::adjust(double lb, double ub, double *b) {
-    // first add idle time to fit
-    if (this->t < lb) { this->t = lb; }
+    // if arrival earlier, move to lb;
+    if (this->ts < lb) {
+        double offset = lb - this->ts;
+        this->ts = lb;
+        this->te += offset;
+    }
     // filter out nodes if this.t > b[n]
     this->unv.erase(std::remove_if(
             this->unv.begin(), this->unv.end(),
             [&b, this](const int &x) {
-                return b[x] <= this->t;
+                return b[x] <= this->te;
             }), this->unv.end());
 
 }

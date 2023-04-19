@@ -230,7 +230,7 @@ class Route:
 
         pass
 
-    def solve_primal_by_dp(self, c, verbose=False, debugging=False, inexact=False, *args, **kwargs):
+    def solve_primal_by_dp(self, c, verbose=False, debugging=False, inexact=False):
         data = {}
         E = np.array(list(self.vrp.d.keys()), np.int)
         data["f"] = c.tolist()
@@ -251,7 +251,7 @@ class Route:
 
         try:
             _route = solve_by_dp_cc(
-                data, verbose, inexact=False
+                data, verbose, inexact=inexact
             )
         except:
             raise ValueError("libdproute error")

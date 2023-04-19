@@ -14,9 +14,9 @@
 bool bool_valid_route(state s, double C, double lb, double ub) {
     if (s.c > C) {
         return false;
-    } else if (s.t > ub) {
+    } else if (s.ts > ub) {
         return false;
-    } else if (s.t < lb) {
+    } else if (s.ts < lb) {
         return false;
     } else {
         return true;
@@ -124,7 +124,7 @@ std::vector<action> run_dp_single(
     }
 
 
-    state s_init = state(0, 0.0, 0.0, 0.0, V, n);
+    state s_init = state(0, 0.0, 0.0, S[0], 0.0, V, n);
     const string k_init = s_init.to_string();
     state_dict[k_init] = s_init;
     queue.insert(s_init);
@@ -135,12 +135,6 @@ std::vector<action> run_dp_single(
         time(&end_timer);
         auto current_time = difftime(end_timer, start_timer);
         if (current_time > timelimit) break;
-//        if (s.unv.empty() || s.c > 0) {
-//            // which means you reach the last stage
-//            value_dict[k] = 0.0;
-//            queue.pop();
-//            continue;
-//        }
         if (verbose) { cout << s.to_string() << endl; }
 
         auto _tails = tail_dict[k];
@@ -241,27 +235,30 @@ std::vector<action> run_dp_single(
     // generate the best policy
     string current_k = k_init;
     vector<action> ac;
+    Eigen::MatrixXf output = Eigen::MatrixXf::Zero(n, 8);
+    int idx = 0;
     while (true) {
         state s = state_dict[current_k];
-//        if (s.s >= N) break;
-//        output.col(3)[s.s] = s.s;
+        output.col(0)[idx] = s.s;
+        output.col(1)[idx] = value_dict[current_k];
+        output.col(3)[idx] = s.c;
+        output.col(4)[idx] = s.ts;
+        output.col(5)[idx] = s.te;
+        output.col(6)[idx] = a[s.s];
+        output.col(7)[idx] = b[s.s];
         auto got = tail_star_dict.find(current_k);
         if (got == tail_star_dict.end())
             break;
         current_k = got->second.st.to_string();
-//        auto is_work = got->second.ac.is_work;
-//        output.col(0)[s.s] = (is_work == 1) * lambda[s.s];
-//        output.col(1)[s.s] = float(is_work == -1);
-//        output.col(2)[s.s] = float(is_work == 1);
+
+        idx ++;
+
         ac.push_back(got->second.ac);
+        output.col(2)[idx] = got->second.ac.f;
     }
     if (verbose) {
         cout << "@best value:" << value_dict[k_init] << endl;
-        cout << "@best policy:" <<
-             endl;
-        for (auto cc: ac)
-            cout << cc.to_string() << "=" <<
-                 endl;
+        cout << output(Eigen::seqN(0,idx+1), Eigen::all)  << endl;
     }
     return ac;
 }
