@@ -28,13 +28,15 @@ from route import Route
 
 from enum import IntEnum
 
-from heur_seq import heur_seq
+import heur_seq as hseq
+import heur_twostage as h2s
 from vrp import VRP
 
 
 class Primal(IntEnum):
     Null = 0  # there is no primal algorithm
     SetPar = 1  # set partitioning
+    TwoStage = 2  # two-stage heuristic
 
 
 class Dual(IntEnum):
@@ -68,6 +70,7 @@ ALGORITHM_TYPE = {
     "prox-II": (Dual.ProxLinearCapacityTW, DualSubproblem.Route, Primal.Null),
     "prox-III": (Dual.ProxLinear, DualSubproblem.CapaRoute, Primal.Null),
     "prox-III-tw": (Dual.ProxLinear, DualSubproblem.CapaWindowRoute, Primal.Null),
+    "prox-III-tw-2s": (Dual.ProxLinear, DualSubproblem.CapaWindowRoute, Primal.TwoStage),
     "prox-III-h": (Dual.ProxLinear, DualSubproblem.CapaRoute, Primal.SetPar),
     "prox-IV": (Dual.ProxLinear, DualSubproblem.Route, Primal.Null),
     "prox-V": (Dual.ProxLinearCapacity_nal, DualSubproblem.Route, Primal.Null),
@@ -661,7 +664,7 @@ def optimize(bcdpar: BCDParams, vrps: Tuple[VRP, VRP], route: Route):
                         # otherwise, you update in the after bcd for x
                         #   if it is a VRPTW
                         # _x = route.solve_primal_by_tsp(_d.flatten(), mode=2)
-                        bool_inexact = False # True if ((it <= 1) or (eps_pfeas_Axb > 2.0)) else False
+                        bool_inexact = False  # True if ((it <= 1) or (eps_pfeas_Axb > 2.0)) else False
                         _x = route.solve_primal_by_dp(_d.flatten(), verbose=bcdpar.verbosity > 2, inexact=bool_inexact)
 
                     elif bcdpar.dual_method == DualSubproblem.Assignment:
@@ -700,7 +703,7 @@ def optimize(bcdpar: BCDParams, vrps: Tuple[VRP, VRP], route: Route):
                         _vWx[idx] = np.zeros_like(theta[idx])
 
                     # save circle
-                    if bcdpar.primal_method not in {Primal.Null}:
+                    if bcdpar.primal_method == Primal.SetPar:
                         _s = _x.tostring()
                         list_xk[idx].append(_x)
                         block_nodes[idx].append(_s)
@@ -765,13 +768,13 @@ def optimize(bcdpar: BCDParams, vrps: Tuple[VRP, VRP], route: Route):
         # ADD A PRIMAL METHOD FOR FEASIBLE SOLUTION
 
         ub_flag = ""
-        if bcdpar.primal_method not in {Primal.Null}:
+        if bcdpar.primal_method == Primal.SetPar:
             # mis_heur(G, xk, (nblock, A, b, k, n, d), c)
             # set_par_heur(list_xk, d, var_map, N)
             suc_cnt = 0
             ub_seq = np.inf
             for it, _d_it in _d_k.items():
-                ub_seq_new = heur_seq(vrp_clone, _d_it, xk, random_perm=True, bcdpar=bcdpar, opt_first=False)
+                ub_seq_new = hseq.heur_seq(vrp_clone, _d_it, xk, random_perm=True, bcdpar=bcdpar, opt_first=False)
                 if bcdpar.verbosity > 1:
                     print(it, ub_seq_new)
                 if ub_seq > ub_seq_new:
@@ -784,6 +787,8 @@ def optimize(bcdpar: BCDParams, vrps: Tuple[VRP, VRP], route: Route):
                 ub_flag += "S"
 
             ub_bst = min(ub_bst, ub_seq)
+        elif bcdpar.primal_method == Primal.TwoStage:
+            h2s.main(xk,A,d, _vAx, route)
 
         # if bcdpar.verbosity > 1:
         #     show_log_header(bcdpar)
