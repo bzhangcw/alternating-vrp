@@ -6,12 +6,19 @@ import collections
 import numpy as np
 
 
-def adjust_cost(sa, Ak,d, route):
-    indicator = np.zeros(shape=Ak.shape[0], dtype=np.int8)
-    indicator[sa] = 1
+def adjust_cost(sa, Ak, d, route):
+    indicator = np.ones(shape=Ak.shape[0], dtype=np.bool)
+    sar = np.array(sa, dtype=np.int)
+    # unselected
+    indicator[sar - 1] = False
     # unselected has infinity cost
-    cc = route.vrp.d
-    return
+    _, edges = Ak[indicator, :].nonzero()
+    dt = d.copy()
+    dt = dt - dt.max() * 2
+    dt[edges] = 1e6
+
+    # xk = route.solve_primal_by_dp(dt, verbose=True, debugging=True)
+    return dt
 
 
 def main(xk, A, d, _vAx, route):
@@ -33,4 +40,4 @@ def main(xk, A, d, _vAx, route):
                 break
 
     for k, sa in assign.items():
-        co = adjust_cost(sa,A[k],d[k], route)
+        co = adjust_cost(sa, A[k], d[k], route)
