@@ -23,6 +23,7 @@ class Route:
             (np.zeros(len(self.vrp.E)), (self.rows, self.cols)),
             shape=(self.cost_mat_size, self.cost_mat_size)
         )
+        self._c_dp_data = {}
 
     def create_model(self):
         self.m = Model("VRP")
@@ -76,26 +77,26 @@ class Route:
             # solve capacitated route
             self.capa = self.m.addConstr(
                 (
-                        quicksum(
-                            vrp.c[t] * self.x[s, t]
-                            for s in vrp.V
-                            for t in vrp.out_neighbours(s)
-                            if s != t and t != vrp.p
-                        )
-                        <= vrp.C
+                    quicksum(
+                        vrp.c[t] * self.x[s, t]
+                        for s in vrp.V
+                        for t in vrp.out_neighbours(s)
+                        if s != t and t != vrp.p
+                    )
+                    <= vrp.C
                 ),
             )
         elif mode == 2:
             # solve capacitated route with TW
             self.capa = self.m.addConstr(
                 (
-                        quicksum(
-                            vrp.c[t] * self.x[s, t]
-                            for s in vrp.V
-                            for t in vrp.out_neighbours(s)
-                            if s != t and t != vrp.p
-                        )
-                        <= vrp.C
+                    quicksum(
+                        vrp.c[t] * self.x[s, t]
+                        for s in vrp.V
+                        for t in vrp.out_neighbours(s)
+                        if s != t and t != vrp.p
+                    )
+                    <= vrp.C
                 ),
             )
             # '''constraint_6: time-windows and also eliminating sub-tours'''
@@ -230,28 +231,29 @@ class Route:
 
         pass
 
-    def solve_primal_by_dp(self, c, verbose=False, debugging=False, inexact=False):
-        data = {}
-        E = np.array(list(self.vrp.d.keys()), np.int)
-        data["f"] = c.tolist()
-        data["D"] = list(self.vrp.d.values())
-        data["I"] = E[:, 0].tolist()
-        data["J"] = E[:, 1].tolist()
-        data["c"] = self.vrp.c
-        data["C"] = self.vrp.C
-        data["a"] = self.vrp.a
-        data["b"] = self.vrp.b
-        data["V"] = self.vrp.V
-        data["T"] = list(self.vrp.T.values())
-        data["S"] = self.vrp.service_time
-        data["m"] = len(c)
-        data["n"] = len(self.vrp.V)
+    def solve_primal_by_dp(self, c, select=None, verbose=False, debugging=False, inexact=False):
+
+        if len(self._c_dp_data) == 0:
+            E = np.array(list(self.vrp.d.keys()), np.int)  # linear function value
+            self._c_dp_data["D"] = np.array(list(self.vrp.d.values()))
+            self._c_dp_data["I"] = np.array(E[:, 0].tolist(), dtype=int)
+            self._c_dp_data["J"] = np.array(E[:, 1].tolist(), dtype=int)
+            self._c_dp_data["c"] = np.array(self.vrp.c, dtype=float)
+            self._c_dp_data["C"] = self.vrp.C
+            self._c_dp_data["a"] = np.array(self.vrp.a, dtype=float)
+            self._c_dp_data["b"] = np.array(self.vrp.b, dtype=float)
+            self._c_dp_data["V"] = np.array(self.vrp.V, dtype=int)
+            self._c_dp_data["T"] = np.array(list(self.vrp.T.values()), dtype=float)
+            self._c_dp_data["S"] = np.array(self.vrp.service_time, dtype=float)
+            self._c_dp_data["m"] = len(c)
+            self._c_dp_data["n"] = len(self.vrp.V)
+
+        self._c_dp_data["f"] = np.array(c.tolist())
         from pydproute.wrapper import solve_by_dp_cc
         import json
-
         try:
             _route = solve_by_dp_cc(
-                data, verbose, inexact=inexact
+                self._c_dp_data, select, verbose, inexact=inexact
             )
         except:
             raise ValueError("libdproute error")
@@ -262,24 +264,23 @@ class Route:
             (-1, 1)
         )
         if debugging:
-            json.dump(data, open('/tmp/sample.json', 'w'))
+            json.dump(self._c_dp_data, open('/tmp/sample.json', 'w'))
             xp = self.solve_primal_by_tsp(c, 2)
             if not ((x.T @ c) == (xp.T @ c)):
                 p, _ = self.visualize(xp)
-                data['p'] = p
-                data['vg'] = (xp.T @ c)[0]
-                data['vd'] = (x.T @ c)[0]
+                self._c_dp_data['p'] = p
+                self._c_dp_data['vg'] = (xp.T @ c)[0]
+                self._c_dp_data['vd'] = (x.T @ c)[0]
                 import json
-                json.dump(data, open('/tmp/sample.json', 'w'))
-
+                json.dump(self._c_dp_data, open('/tmp/sample.json', 'w'))
 
                 _route = solve_by_dp_cc(
-                    data, True, False
+                    self._c_dp_data, True, False
                 )
 
                 print(_route)
                 print(p)
-                print(data['vg'], data['vd'])
+                print(self._c_dp_data['vg'], self._c_dp_data['vd'])
                 raise ValueError("dp not equal to gurobi!")
         return x
 

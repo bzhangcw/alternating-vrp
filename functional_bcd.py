@@ -93,7 +93,7 @@ class BCDParams(object):
     parser.add_argument(
         "--method",
         type=str,
-        default="prox-III-tw",
+        default="prox-III-tw-2s",
         choices=[*list(ALGORITHM_TYPE.keys())],
         help="""
         Choose algorithm
@@ -320,9 +320,9 @@ def mis_heur(G: nx.Graph, xk, params, c):
     _Ax = sum(_vAx.values())
 
     eps_pfeas = (
-            np.linalg.norm(_Ax - b, np.inf)
-            + sum(_vBx.values())
-            + sum(np.linalg.norm(_, np.inf) for _ in _vWx.values())
+        np.linalg.norm(_Ax - b, np.inf)
+        + sum(_vBx.values())
+        + sum(np.linalg.norm(_, np.inf) for _ in _vWx.values())
     )
     cx = sum(_vcx.values())
 
@@ -624,8 +624,8 @@ def optimize(bcdpar: BCDParams, vrps: Tuple[VRP, VRP], route: Route):
                         _d = d[idx].reshape((-1, 1)) + Ak.T @ lbd + rhol * Ak.T @ (_Ax - b) \
                              + rhom * (c[idx].T * (_nonnegative((c[idx] @ xk[idx]) - C[idx][0] + mu[idx] / rho))) \
                              + rho * M * (
-                                     np.eye(n) - P_bar @ np.diag(df.flatten()) @ (np.linalg.inv(PbTPb)) @ (P_bar.T)) @ (
-                                     P_bar @ pfx + M * xk[idx] - q + theta[idx] / rho) \
+                                 np.eye(n) - P_bar @ np.diag(df.flatten()) @ (np.linalg.inv(PbTPb)) @ (P_bar.T)) @ (
+                                 P_bar @ pfx + M * xk[idx] - q + theta[idx] / rho) \
                              + (-xk[idx] / tau + 0.5 / tau)
                     elif bcdpar.dual_update == Dual.linearProxLinearCapacityTW_nx:
                         # todo for WR, corresponds to (27)
@@ -635,7 +635,7 @@ def optimize(bcdpar: BCDParams, vrps: Tuple[VRP, VRP], route: Route):
                         _d = d[idx].reshape((-1, 1)) + Ak.T @ lbd + rhol * Ak.T @ (_Ax - b) \
                              + rhom * c[idx].T * (_nonnegative(c[idx] @ xk[idx] - C[idx][0]) + mu[idx] / rhom) \
                              + M * (np.eye(n) - P @ np.diag(dh.flatten()) @ (np.linalg.inv(P.T @ P)) @ P.T) @ (
-                                     theta[idx] + rho * _nonnegative(P @ phx + M * xk[idx] - q)) \
+                                 theta[idx] + rho * _nonnegative(P @ phx + M * xk[idx] - q)) \
                              + (-xk[idx] / tau + 0.5 / tau)
                     elif bcdpar.dual_update == Dual.NonlinearProxLinearCapacityTW:
                         # todo for WR, corresponds to (31)
@@ -740,9 +740,9 @@ def optimize(bcdpar: BCDParams, vrps: Tuple[VRP, VRP], route: Route):
         eps_pfeas_cap = sum(_vBx.values())
 
         eps_pfeas = (
-                np.linalg.norm(_Ax - b, np.inf)
-                + sum(_vBx.values())
-                + sum(np.linalg.norm(_, np.inf) for _ in _vWx.values())
+            np.linalg.norm(_Ax - b, np.inf)
+            + sum(_vBx.values())
+            + sum(np.linalg.norm(_, np.inf) for _ in _vWx.values())
         )
         cx = sum(_vcx.values())
         lobj = sum(_vcxl.values()) \
@@ -788,7 +788,10 @@ def optimize(bcdpar: BCDParams, vrps: Tuple[VRP, VRP], route: Route):
 
             ub_bst = min(ub_bst, ub_seq)
         elif bcdpar.primal_method == Primal.TwoStage:
-            h2s.main(xk,A,d, _vAx, route)
+            try:
+                xkh = h2s.main(xk, A, d, _vAx, route)
+            except:
+                pass
 
         # if bcdpar.verbosity > 1:
         #     show_log_header(bcdpar)
