@@ -106,10 +106,12 @@ if __name__ == "__main__":
     # create routing solver
     route = Route(vrp)
 
-    xk = optimize(bcdpar=params_bcd, vrps=(vrp, vrp_clone), route=route)
+    xk, xh = optimize(bcdpar=params_bcd, vrps=(vrp, vrp_clone), route=route)
     # vrp.visualize(x=xk)
 
     print("*" * 50)
-    # vrp.visualize(x=None)
+    print("*** dual solution")
     vrp.visualize(x=xk)
     print("*" * 50)
+    print("*** primal heuristic solution")
+    vrp.visualize(x=xh)

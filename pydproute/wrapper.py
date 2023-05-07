@@ -20,6 +20,7 @@ def convert_to_c_arr_int(size, lambda_k):
 
 
 def solve_by_dp_cc(data, select=None, verbose=True, inexact=False):
+    verbose and print("libroute start")
     if select is None:
         sol = run_dp(
             data['n'],
@@ -42,25 +43,29 @@ def solve_by_dp_cc(data, select=None, verbose=True, inexact=False):
         return [*sol, 0]
 
     _idx_v, _idx_e = select
-    _n, _m = len(_idx_v), len(_idx_e)
-    sol = run_dp(
-        _n,
-        _m,
-        convert_to_c_arr(_m, data['f'][_idx_e]),
-        convert_to_c_arr(_m, data['D'][_idx_e]),  # not really used
-        convert_to_c_arr_int(_m, data['I'][_idx_e].tolist()),
-        convert_to_c_arr_int(_m, data['J'][_idx_e].tolist()),
-        convert_to_c_arr_int(_n, data['V'][_idx_v].tolist()),
-        convert_to_c_arr(_n, data['c'][_idx_v]),
-        convert_to_c_arr(_m, data['T'][_idx_e]),
-        convert_to_c_arr(_n, data['S'][_idx_v]),
-        convert_to_c_arr(_n, data['a'][_idx_v]),
-        convert_to_c_arr(_n, data['b'][_idx_v]),
-        data['C'],
-        verbose,
-        inexact,
-        20.0
-    )
+    _n, _m = int(len(_idx_v)), int(len(_idx_e))
+    nmax = int(max(data['I']) + 1)
+    try:
+        sol = run_dp(
+            _n,
+            _m,
+            convert_to_c_arr(_m, data['f']),
+            convert_to_c_arr(_m, data['D']),  # not really used
+            convert_to_c_arr_int(_m, data['I'].tolist()),
+            convert_to_c_arr_int(_m, data['J'].tolist()),
+            convert_to_c_arr_int(_n, data['V'][_idx_v].tolist()),
+            convert_to_c_arr(nmax, data['c']),
+            convert_to_c_arr(_m, data['T']),
+            convert_to_c_arr(nmax, data['S']),
+            convert_to_c_arr(nmax, data['a']),
+            convert_to_c_arr(nmax, data['b']),
+            data['C'],
+            verbose,
+            inexact,
+            20000.0
+        )
+    except:
+        raise ValueError("libroute failed")
     return [*sol, 0]
 
 

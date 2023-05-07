@@ -114,8 +114,9 @@ std::vector<action> run_dp_single(
      * which is actually a stack (LIFO)
      * */
     auto queue = problem_queue();
-    Eigen::MatrixXf Dm(n, n); // cost
-    Eigen::MatrixXd Ex(n, n); // id matrix
+    int *max_element = std::max_element(I, I + m);
+    Eigen::MatrixXf Dm(*max_element + 1, *max_element + 1); // cost
+    Eigen::MatrixXd Ex(*max_element + 1, *max_element + 1); // id matrix
 
 
     for (int e = 0; e < m; e++) {
@@ -128,6 +129,11 @@ std::vector<action> run_dp_single(
     const string k_init = s_init.to_string();
     state_dict[k_init] = s_init;
     queue.insert(s_init);
+    if (verbose) {
+        cout << "visiting" << endl;
+        Eigen::Map<Eigen::RowVectorXi> vsshow(V, n);
+        cout << vsshow << endl;
+    }
     while (!queue.is_empty()) {
         auto kv_pair = queue.get_last();
         string k = kv_pair.first;
@@ -235,7 +241,7 @@ std::vector<action> run_dp_single(
     // generate the best policy
     string current_k = k_init;
     vector<action> ac;
-    Eigen::MatrixXf output = Eigen::MatrixXf::Zero(n, 8);
+    Eigen::MatrixXf output = Eigen::MatrixXf::Zero(n + 1, 8);
     int idx = 0;
     while (true) {
         state s = state_dict[current_k];
@@ -251,14 +257,14 @@ std::vector<action> run_dp_single(
             break;
         current_k = got->second.st.to_string();
 
-        idx ++;
+        idx++;
 
         ac.push_back(got->second.ac);
         output.col(2)[idx] = got->second.ac.f;
     }
     if (verbose) {
         cout << "@best value:" << value_dict[k_init] << endl;
-        cout << output(Eigen::seqN(0,idx+1), Eigen::all)  << endl;
+        cout << output(Eigen::seqN(0, idx + 1), Eigen::all) << endl;
     }
     return ac;
 }

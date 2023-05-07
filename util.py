@@ -7,7 +7,7 @@ import os
 import sys
 from collections import defaultdict
 from itertools import combinations, permutations
-
+import warnings
 from gurobipy import GRB, tuplelist, quicksum
 
 ##############################
@@ -44,6 +44,8 @@ _grb_logger.setLevel(logging.ERROR)
 logFormatter = logging.Formatter("%(asctime)s: %(message)s")
 logger = logging.getLogger("railway")
 logger.setLevel(logging.INFO)
+
+warnings.filterwarnings('ignore')
 
 # consoleHandler = logging.StreamHandler(sys.stdout)
 # consoleHandler.setFormatter(logFormatter)

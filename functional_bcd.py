@@ -525,6 +525,8 @@ def optimize(bcdpar: BCDParams, vrps: Tuple[VRP, VRP], route: Route):
     # primal variables
     xk = [np.ones((n, 1)) for _ in A]
     wk = [np.zeros((m + 1, 1)) for _ in A]
+    # primal heurisic solutions
+    xkh = None
     # projection operator for w
     _proj = lambda x, θ: -np.linalg.solve(P.T @ P, P.T @ (M * x - q + θ / rho))
     # dual variables
@@ -663,9 +665,10 @@ def optimize(bcdpar: BCDParams, vrps: Tuple[VRP, VRP], route: Route):
                         # IN THIS MODE, YOU ALSO HAVE w,
                         # otherwise, you update in the after bcd for x
                         #   if it is a VRPTW
-                        # _x = route.solve_primal_by_tsp(_d.flatten(), mode=2)
-                        bool_inexact = False  # True if ((it <= 1) or (eps_pfeas_Axb > 2.0)) else False
-                        _x = route.solve_primal_by_dp(_d.flatten(), verbose=bcdpar.verbosity > 2, inexact=bool_inexact)
+                        _x = route.solve_primal_by_tsp(_d.flatten(), mode=2)
+                        ### use DP to solve
+                        # bool_inexact = False  # True if ((it <= 1) or (eps_pfeas_Axb > 2.0)) else False
+                        # _x,_ = route.solve_primal_by_dp(_d.flatten(), verbose=bcdpar.verbosity > 2, inexact=bool_inexact)
 
                     elif bcdpar.dual_method == DualSubproblem.Assignment:
                         _x = route.solve_primal_by_assignment(_d.flatten(), mode=0)
@@ -788,10 +791,10 @@ def optimize(bcdpar: BCDParams, vrps: Tuple[VRP, VRP], route: Route):
 
             ub_bst = min(ub_bst, ub_seq)
         elif bcdpar.primal_method == Primal.TwoStage:
-            try:
-                xkh = h2s.main(xk, A, d, _vAx, route)
-            except:
-                pass
+            _xh, ub_h2s = h2s.main(xk, A, _d_it, d, _vAx, route, verbose=bcdpar.verbosity > 2)
+            if ub_h2s < ub_bst:
+                xkh = _xh
+                ub_bst = ub_h2s
 
         # if bcdpar.verbosity > 1:
         #     show_log_header(bcdpar)
@@ -836,4 +839,4 @@ def optimize(bcdpar: BCDParams, vrps: Tuple[VRP, VRP], route: Route):
 
         bcdpar.iter += 1
 
-    return xk
+    return xk, xkh
