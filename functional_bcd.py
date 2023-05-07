@@ -445,17 +445,17 @@ def show_log_header(bcdpar: BCDParams):
         "{:^7s}",
         "{:^8s}",
         "{:^8s}",
+        "{:^9s}",
         "{:^8s}",
-        "{:^10s}",
-        "{:^10s}",
-        "{:^10s}",
+        "{:^8s}",
         "{:^9s}",
         "{:^9s}",
         "{:^9s}",
+        "{:^8s}",
         "{:4s}",
     ]
     _log_header = " ".join(slots).format(*headers)
-    lt = _log_header.__len__()
+    lt = _log_header.__len__() + 2
     print("*" * lt)
     print(("{:^" + f"{lt}" + "}").format("BCD for MILP"))
     print(("{:^" + f"{lt}" + "}").format("(c) Chuwen Zhang, Shanwen Pu, Rui Wang"))
@@ -562,9 +562,9 @@ def optimize(bcdpar: BCDParams, vrps: Tuple[VRP, VRP], route: Route):
     bool_updated_primal = False
     # logger
     _LOG_FORMAT = (
-        lambda x: "{:03d} {:4.1e} {:+8.2f} {:+9.2f}* {:+9.2f} {:+.3e} {:+.3e} {:+.3e} {:+.3e} {:+.3e} {:.2e} {:04d}"
+        lambda x: "{:03d} {:4.1e} {:+8.2f} {:+9.1f}* {:+8.2f} {:+.3e} {:+.0e} {:+.1e} {:+.3e} {:+.3e} {:.2e} {:04d}"
         if x
-        else "{:03d} {:4.1e} {:+8.2f} {:+9.2f}  {:+9.2f} {:+.3e} {:+.3e} {:+.3e} {:+.3e} {:+.3e} {:.2e} {:04d}"
+        else "{:03d} {:4.1e} {:+8.2f} {:+9.1f}  {:+8.2f} {:+.3e} {:+.0e} {:+.1e} {:+.3e} {:+.3e} {:.2e} {:04d}"
     )
     show_log_header(bcdpar)
 
@@ -985,13 +985,14 @@ def optimize(bcdpar: BCDParams, vrps: Tuple[VRP, VRP], route: Route):
 
             ub_bst = min(ub_bst, ub_seq)
         elif bcdpar.primal_method == Primal.TwoStage:
-            _xh, ub_h2s = h2s.main(
-                xk, A, _d_it, d,_vcx, _vAx, route, verbose=bcdpar.verbosity > 2
-            )
-            bool_updated_primal = ub_h2s < ub_bst
-            if ub_h2s < ub_bst:
-                xkh = _xh
-                ub_bst = ub_h2s
+            if k % 10 == 0:
+                _xh, ub_h2s = h2s.main(
+                    xk, A, _d_it, d,_vcx, _vAx, route, verbose=bcdpar.verbosity > 2
+                )
+                bool_updated_primal = ub_h2s < ub_bst
+                if ub_h2s < ub_bst:
+                    xkh = _xh
+                    ub_bst = ub_h2s
 
         # if bcdpar.verbosity > 1:
         #     show_log_header(bcdpar)
