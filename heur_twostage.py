@@ -17,7 +17,7 @@ def solve(sa, edges, d, route, verbose=False):
     return xk, _route
 
 
-def main(xk, A, d, d_real, _vAx, route, verbose=True):
+def main(xk, A, d, d_real, _vcx, _vAx, route, verbose=True):
     """
     :param xk: dual solution
     :param route: route object to call DP.
@@ -44,11 +44,13 @@ def main(xk, A, d, d_real, _vAx, route, verbose=True):
     xkh = []
     edges = [(s, t) for s in route.vrp.V for t in route.vrp.V if s != t]
     em = {k: s for k, (s, t) in enumerate(edges)}
+    priority_seq = sorted(_vcx, key=lambda x: -_vcx.get(x))
     while True:
         idx = min(k, vA.shape[1] - 1)
+        vid = priority_seq[idx]
         if verbose:
             print(k, scope)
-        xx, r = solve(scope, edges, d[idx].flatten(), route, verbose)
+        xx, r = solve(scope, edges, d[vid].flatten(), route, verbose)
         xkh.append(xx)
         scope = scope.difference(r)
         cost += (d_real[0] @ xx)[0]
