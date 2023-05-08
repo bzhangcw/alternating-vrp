@@ -114,7 +114,7 @@ class BCDParams(object):
     parser.add_argument(
         "--primal_freq",
         type=int,
-        default=1,
+        default=10,
         help="""
         the frequency to use primal feasible solution    
         """,
@@ -996,7 +996,7 @@ def optimize(bcdpar: BCDParams, vrps: Tuple[VRP, VRP], route: Route):
 
             ub_bst = min(ub_bst, ub_seq)
         elif bcdpar.primal_method == Primal.TwoStage:
-            if k % bcdpar.primal_freq == 0:
+            if (k % bcdpar.primal_freq == 0) or (eps_pfeas_Axb < 2):
                 _xh, ub_h2s = h2s.main(
                     xk, A, _d_it, d,_vcx, _vAx, route, verbose=bcdpar.verbosity > 2
                 )
