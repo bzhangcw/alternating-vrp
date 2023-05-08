@@ -5,7 +5,6 @@ import collections
 
 import numpy as np
 
-
 def solve(sa, edges, d, route, verbose=False):
     _d = d
     xk, _route = route.solve_primal_by_dp(
@@ -38,26 +37,40 @@ def main(xk, A, d, d_real, _vcx, _vAx, route, verbose=True):
     # for k, sa in assign.items():
     #     xkh[k] = solve(sa, A[k], d[k], route)
     # generate a primal feasible solution till every node is used.
-    scope = set(np.array(range(vA.shape[0])) + 1)
-    k = 0
-    cost = 0
+
+    cost = np.inf
     xkh = []
     edges = [(s, t) for s in route.vrp.V for t in route.vrp.V if s != t]
     em = {k: s for k, (s, t) in enumerate(edges)}
-    priority_seq = sorted(_vcx, key=lambda x: -_vcx.get(x))
-    while True:
-        idx = min(k, vA.shape[1] - 1)
-        vid = priority_seq[idx]
-        if verbose:
-            print(k, scope)
-        xx, r = solve(scope, edges, d[vid].flatten(), route, verbose)
-        xkh.append(xx)
-        scope = scope.difference(r)
-        cost += (d_real[0] @ xx)[0]
-        if verbose:
-            print(k, r, scope)
-        k += 1
-        if len(scope) == 0:
-            break
+    # reset seed
+    np.random.seed(1)
+    choices_seq = [
+        np.random.permutation(list(_vcx.keys())),
+        sorted(_vcx, key=lambda x: -_vcx.get(x)),
+        sorted(_vcx, key=lambda x: - xk[x].sum())
+    ]
+    for nu in range(3):
+        k = 0
+        scope = set(np.array(range(vA.shape[0])) + 1)
+        _xkh = []
+        _cost = 0
+        priority_seq =choices_seq[nu]
+        while True:
+            idx = min(k, vA.shape[1] - 1)
+            vid = priority_seq[idx]
+            if verbose:
+                print(k, scope)
+            xx, r = solve(scope, edges, d[vid].flatten(), route, verbose)
+            _xkh.append(xx)
+            _cost += (d_real[0] @ xx)[0]
+            scope = scope.difference(r)
+            if verbose:
+                print(k, r, scope)
+            k += 1
+            if len(scope) == 0:
+                break
+        if _cost < cost:
+            xkh = _xkh
+            cost = _cost
 
     return xkh, cost

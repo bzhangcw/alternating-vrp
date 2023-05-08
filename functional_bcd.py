@@ -112,6 +112,14 @@ class BCDParams(object):
         """,
     )
     parser.add_argument(
+        "--primal_freq",
+        type=int,
+        default=1,
+        help="""
+        the frequency to use primal feasible solution    
+        """,
+    )
+    parser.add_argument(
         "--dual_linearize_max",
         type=int,
         default=20,
@@ -211,6 +219,7 @@ class BCDParams(object):
         self.sigma = 1
         self.tsig = 1
         self.rho0 = 1
+        self.primal_freq = 1
         self.parse_environ()
 
     def parse_environ(self):
@@ -229,6 +238,7 @@ class BCDParams(object):
         self.sigma = self.args.sigma
         self.tsig = self.args.tsig
         self.rho0 = self.args.rho0
+        self.primal_freq = self.args.primal_freq
 
     def update_bound(self, lb):
         if lb >= self.lb:
@@ -468,6 +478,7 @@ def show_log_header(bcdpar: BCDParams):
     print((f" :dual_linearize        : {bcdpar.dual_linearize}"))
     print((f" :dual_linearize_inner  : {bcdpar.dual_linearize_max}"))
     print((f" :primal_method         : {bcdpar.primal_method.name}"))
+    print((f" :primal_frequency      : {bcdpar.primal_freq}"))
     print("*" * lt)
     print(_log_header)
     print("*" * lt)
@@ -985,7 +996,7 @@ def optimize(bcdpar: BCDParams, vrps: Tuple[VRP, VRP], route: Route):
 
             ub_bst = min(ub_bst, ub_seq)
         elif bcdpar.primal_method == Primal.TwoStage:
-            if k % 10 == 0:
+            if k % bcdpar.primal_freq == 0:
                 _xh, ub_h2s = h2s.main(
                     xk, A, _d_it, d,_vcx, _vAx, route, verbose=bcdpar.verbosity > 2
                 )
