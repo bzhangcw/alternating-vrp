@@ -5,6 +5,7 @@ import collections
 
 import numpy as np
 
+
 def solve(sa, edges, d, route, verbose=False):
     _d = d
     xk, _route = route.solve_primal_by_dp(
@@ -47,14 +48,14 @@ def main(xk, A, d, d_real, _vcx, _vAx, route, verbose=True):
     choices_seq = [
         np.random.permutation(list(_vcx.keys())),
         sorted(_vcx, key=lambda x: -_vcx.get(x)),
-        sorted(_vcx, key=lambda x: - xk[x].sum())
+        sorted(_vcx, key=lambda x: -xk[x].sum()),
     ]
     for nu in range(3):
         k = 0
         scope = set(np.array(range(vA.shape[0])) + 1)
         _xkh = []
         _cost = 0
-        priority_seq =choices_seq[nu]
+        priority_seq = choices_seq[nu]
         while True:
             idx = min(k, vA.shape[1] - 1)
             vid = priority_seq[idx]

@@ -3,14 +3,6 @@ from gurobipy import *
 from itertools import combinations
 from util import subtourelim
 import scipy
-import json
-
-
-class NumpyEncoder(json.JSONEncoder):
-    def default(self, obj):
-        if isinstance(obj, np.ndarray):
-            return obj.tolist()
-        return json.JSONEncoder.default(self, obj)
 
 
 class Route:
@@ -31,7 +23,6 @@ class Route:
             (np.zeros(len(self.vrp.E)), (self.rows, self.cols)),
             shape=(self.cost_mat_size, self.cost_mat_size),
         )
-        self._c_dp_data = {}
 
     def create_model(self):
         self.m = Model("VRP")
@@ -48,7 +39,6 @@ class Route:
         self.w = self.m.addVars([s for s in V], vtype=CONST.INTEGER, name="w")
 
     def add_constrs(self, mode=0):
-
         vrp = self.vrp
         self.depot_out = self.m.addConstr(
             quicksum(self.x[vrp.p, t] for t in vrp.V_0 if (vrp.p, t) in vrp.E) == 1,
@@ -168,6 +158,7 @@ class Route:
             GRB.MINIMIZE,
         )
         self.m.Params.lazyConstraints = 1
+        # self.m.Params.MIPGap = 0.1  # 设置gap为10%
         # @note: keep for dbg
         # xx = np.array(
         #             [v for k, v in self.m.getAttr("x", self.x).items()]
@@ -241,101 +232,6 @@ class Route:
 
         pass
 
-    def solve_primal_by_dp(
-        self, c, select=None, verbose=False, debugging=False, inexact=False,
-        dump=False
-    ):
-
-        if len(self._c_dp_data) == 0:
-            E = np.array(list(self.vrp.d.keys()), np.int)  # linear function value
-            self._c_dp_data["D"] = np.array(list(self.vrp.d.values()))
-            self._c_dp_data["I"] = np.array(E[:, 0].tolist(), dtype=int)
-            self._c_dp_data["J"] = np.array(E[:, 1].tolist(), dtype=int)
-            self._c_dp_data["c"] = np.array(self.vrp.c, dtype=float)
-            self._c_dp_data["C"] = self.vrp.C
-            self._c_dp_data["a"] = np.array(self.vrp.a, dtype=float)
-            self._c_dp_data["b"] = np.array(self.vrp.b, dtype=float)
-
-            self._c_dp_data["T"] = np.array(list(self.vrp.T.values()), dtype=float)
-            self._c_dp_data["S"] = np.array(self.vrp.service_time, dtype=float)
-            self._c_dp_data["m"] = len(c)
-            self._c_dp_data["n"] = len(self.vrp.V)
-
-        self._c_dp_data["V"] = np.array(self.vrp.V, dtype=int)
-        self._c_dp_data["f"] = np.array(c.tolist())
-        from pydproute.wrapper import solve_by_dp_cc
-        import json
-
-        try:
-            if dump and (select is not None):
-                _idx_v, _idx_e = select
-                _n, _m = len(_idx_v), len(_idx_e)
-                dump = {}
-                dump["n"] = _n
-                dump["m"] = _m
-                dump["f"] = self._c_dp_data["f"]
-                dump["D"] = self._c_dp_data["D"]
-                dump["I"] = self._c_dp_data["I"]
-                dump["J"] = self._c_dp_data["J"]
-                dump["V"] = self._c_dp_data["V"][_idx_v].tolist()
-                dump["c"] = self._c_dp_data["c"]
-                dump["T"] = self._c_dp_data["T"]
-                dump["S"] = self._c_dp_data["S"]
-                dump["a"] = self._c_dp_data["a"]
-                dump["b"] = self._c_dp_data["b"]
-                dump["C"] = self._c_dp_data["C"]
-
-                json.dump(
-                    dump, open("/tmp/sample.json", "w"), cls=NumpyEncoder
-                )
-            _route = solve_by_dp_cc(self._c_dp_data, select, verbose, inexact=inexact)
-        except:
-            raise ValueError("libdproute error")
-        _edges = zip(_route[:-1], _route[1:])
-        _sol = {k: 1 for k in _edges}
-
-        x = np.fromiter((_sol.get(k, 0) for k in self.vrp.E), dtype=np.int8).reshape(
-            (-1, 1)
-        )
-        if debugging:
-            json.dump(self._c_dp_data, open("/tmp/sample_full.json", "w"))
-            xp = self.solve_primal_by_tsp(c, 2)
-            if not ((x.T @ c) == (xp.T @ c)):
-                p, _ = self.visualize(xp)
-                self._c_dp_data["p"] = p
-                self._c_dp_data["vg"] = (xp.T @ c)[0]
-                self._c_dp_data["vd"] = (x.T @ c)[0]
-                import json
-
-                _route = solve_by_dp_cc(self._c_dp_data, True, False)
-
-                print(_route)
-                print(p)
-                print(self._c_dp_data["vg"], self._c_dp_data["vd"])
-                raise ValueError("dp not equal to gurobi!")
-        return x, _route
-
-    def dump_to_json(self, c, *args, **kwargs):
-        data = {}
-        E = np.array(list(self.vrp.d.keys()), np.int)
-        data["f"] = c.tolist()
-        data["D"] = list(self.vrp.d.values())
-        data["I"] = E[:, 0].tolist()
-        data["J"] = E[:, 1].tolist()
-        data["c"] = self.vrp.c
-        data["C"] = self.vrp.C
-        data["a"] = self.vrp.a
-        data["b"] = self.vrp.b
-        data["V"] = self.vrp.V
-        data["T"] = list(self.vrp.T.values())
-        data["S"] = self.vrp.service_time
-        data["m"] = len(c)
-        data["n"] = len(self.vrp.V)
-
-        p, _ = self.visualize(self.solve_primal_by_tsp(c, 2))
-        data["p"] = p
-        return data
-
 
 if __name__ == "__main__":
     import json
@@ -355,13 +251,11 @@ if __name__ == "__main__":
     coordinates = {capital_map[c]: coordinates[c] for c in capitals}
     capitals = range(len(capitals))
 
-
     def distance(city1, city2):
         c1 = coordinates[city1]
         c2 = coordinates[city2]
         diff = (c1[0] - c2[0], c1[1] - c2[1])
         return math.sqrt(diff[0] * diff[0] + diff[1] * diff[1])
-
 
     dist = {(c1, c2): distance(c1, c2) for c1, c2 in combinations(capitals, 2)}
 

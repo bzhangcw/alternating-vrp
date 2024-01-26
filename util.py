@@ -7,14 +7,14 @@ import os
 import sys
 from collections import defaultdict
 from itertools import combinations, permutations
-import warnings
+
 from gurobipy import GRB, tuplelist, quicksum
 
 ##############################
 # DEFAULTS
 ##############################
-NODE_SINK = 't'
-NODE_SINK_ARR = '_t'
+NODE_SINK = "t"
+NODE_SINK_ARR = "_t"
 ##############################
 # package-wise global variables
 ##############################
@@ -29,7 +29,9 @@ multiplier = dict()  # each (station, t)
 z_vars = dict()
 # node multiplier
 yv_multiplier = {}  # the multiplier of each v
-yvc_multiplier = defaultdict(lambda: {"a": 0, "s": 0, "p": 0})  # the multiplier of each v with type c
+yvc_multiplier = defaultdict(
+    lambda: {"a": 0, "s": 0, "p": 0}
+)  # the multiplier of each v with type c
 safe_int = {}
 # category list
 category = ["s", "a", "p"]
@@ -45,13 +47,11 @@ logFormatter = logging.Formatter("%(asctime)s: %(message)s")
 logger = logging.getLogger("railway")
 logger.setLevel(logging.INFO)
 
-warnings.filterwarnings('ignore')
-
 # consoleHandler = logging.StreamHandler(sys.stdout)
 # consoleHandler.setFormatter(logFormatter)
 # logger.addHandler(consoleHandler)
 
-ff = open('tmp.log', 'w')
+ff = open("tmp.log", "w")
 
 
 # Callback - use lazy constraints to eliminate sub-tours
@@ -59,9 +59,7 @@ def subtourelim(model, where, depot):
     if where == GRB.Callback.MIPSOL:
         # make a list of edges selected in the solution
         vals = model.cbGetSolution(model._vars)
-        selected = tuplelist(
-            (i, j) for i, j in model._vars.keys() if vals[i, j] > 0.5
-        )
+        selected = tuplelist((i, j) for i, j in model._vars.keys() if vals[i, j] > 0.5)
         V = set()
 
         for s, t in selected:
@@ -71,28 +69,29 @@ def subtourelim(model, where, depot):
         tour = subtour(selected, depot)
         print(selected, tour, V, file=ff, flush=True)
         if len(tour) < len(V):
-
             # add subtour elimination constr. for every pair of cities in subtour
             cc = list(permutations(tour, 2))
 
             _ = model.cbLazy(
-                quicksum(model._vars[i, j] for i, j in cc)
-                <= len(tour) - 1
+                quicksum(model._vars[i, j] for i, j in cc) <= len(tour) - 1
             )
 
 
 # Given a tuplelist of edges, find the shortest subtour
 
+
 def subtour(edges, depot):
     V = list(set([i for i, j in edges] + [j for i, j in edges]))
     unvisited = V[:]
     cycle = V[:]  # Dummy - guaranteed to be replaced
-    depot_connected = [j for i, j in edges.select(depot, '*')]
+    depot_connected = [j for i, j in edges.select(depot, "*")]
     unvisited.remove(depot)
     while depot_connected:
         current = depot_connected.pop()
         unvisited.remove(current)
-        neighbors = [j for i, j in edges.select(current, '*') if j in unvisited and j != 0]
+        neighbors = [
+            j for i, j in edges.select(current, "*") if j in unvisited and j != 0
+        ]
         depot_connected += neighbors
 
     while unvisited:  # true if list is non-empty
@@ -127,12 +126,14 @@ def subtour_for_depot(edges, depot):
     V = list(set([i for i, j in edges] + [j for i, j in edges]))
     unvisited = V[:]
     cycle = V[:]  # Dummy - guaranteed to be replaced
-    depot_connected = [j for i, j in edges.select(depot, '*')]
+    depot_connected = [j for i, j in edges.select(depot, "*")]
     unvisited.remove(depot)
     while depot_connected:
         current = depot_connected.pop()
         unvisited.remove(current)
-        neighbors = [j for i, j in edges.select(current, '*') if j in unvisited and j != 0]
+        neighbors = [
+            j for i, j in edges.select(current, "*") if j in unvisited and j != 0
+        ]
         depot_connected += neighbors
 
     while unvisited:  # true if list is non-empty
@@ -172,7 +173,9 @@ class SysParams(object):
     up = 0
 
     def __init__(self):
-        subdir_result = self.subdir_result = datetime.datetime.now().strftime('%y%m%d-%H%M')
+        subdir_result = self.subdir_result = datetime.datetime.now().strftime(
+            "%y%m%d-%H%M"
+        )
         fdir_result = self.fdir_result = f"result/{subdir_result}"
         os.makedirs(fdir_result, exist_ok=True)
         fileHandler = logging.FileHandler("{0}/{1}.log".format(fdir_result, "out"))
@@ -181,11 +184,12 @@ class SysParams(object):
 
     def parse_environ(self):
         import os
-        self.station_size = int(os.environ.get('station_size', 29))
-        self.train_size = int(os.environ.get('train_size', 50))
-        self.time_span = int(os.environ.get('time_span', 1080))
-        self.iter_max = int(os.environ.get('iter_max', 100))
-        self.up = int(os.environ.get('up', 0))
+
+        self.station_size = int(os.environ.get("station_size", 29))
+        self.train_size = int(os.environ.get("train_size", 50))
+        self.time_span = int(os.environ.get("time_span", 1080))
+        self.iter_max = int(os.environ.get("iter_max", 100))
+        self.up = int(os.environ.get("up", 0))
         self.log_problem_size(logger)
 
     def log_problem_size(self, logger):

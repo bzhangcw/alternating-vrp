@@ -221,7 +221,6 @@ class CVSState:
         self.total_fixed_cost = copy.copy(pElement.total_fixed_cost)
 
     def CalculateLabelCost(self, vehicle_id):
-
         # LabelCost
 
         # fixed_cost for each vehicle

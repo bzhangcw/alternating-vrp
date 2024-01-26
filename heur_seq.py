@@ -50,25 +50,30 @@ def enforce_coup_constrs(vrp, city):
     assert city != vrp.p
     c = vrp.coup[city]
     c.rhs = 1
-    c.sense = '='
+    c.sense = "="
     vrp.m.update()
 
 
 def enforce_coup_constrs_only_for_j(vrp, j, occu_len, free_idx):
     node_occ_j = vrp.m.addVars(vrp.V_0, vtype=GRB.BINARY)
     coup_j = vrp.m.addConstrs(
-        (quicksum(vrp.x[s, t, j] for s in vrp.in_neighbours(t) if s != t)
-         ==
-         node_occ_j[t]
-         for t in vrp.V_0),
-        **name_prefix(f"coup_{j}"))
+        (
+            quicksum(vrp.x[s, t, j] for s in vrp.in_neighbours(t) if s != t)
+            == node_occ_j[t]
+            for t in vrp.V_0
+        ),
+        **name_prefix(f"coup_{j}"),
+    )
     node_ub_hard = len(vrp.V_0) - occu_len - len(free_idx)
     node_ub = min(node_ub_hard, 1.5 * (len(vrp.V_0) - occu_len) / (len(free_idx) + 1))
     node_ub_j = vrp.m.addConstr(quicksum(node_occ_j[t] for t in vrp.V_0) <= node_ub)
-    node_lb_j = tuplelist() if len(free_idx) > 0 else \
-        vrp.m.addConstr(quicksum(node_occ_j[t] for t in vrp.V_0)
-                        >=
-                        (len(vrp.V_0) - occu_len))
+    node_lb_j = (
+        tuplelist()
+        if len(free_idx) > 0
+        else vrp.m.addConstr(
+            quicksum(node_occ_j[t] for t in vrp.V_0) >= (len(vrp.V_0) - occu_len)
+        )
+    )
     return coup_j, node_ub_j, node_lb_j, node_occ_j
 
 
@@ -107,18 +112,23 @@ def heur_seq(vrp, d, xk, random_perm=False, bcdpar=None, opt_first=False):
 
     cost = {idx: 0 for idx in range(len(d))}
     for idx, (_d, _x) in enumerate(zip(d, xk)):
-        vars = vrp.x.select('*', '*', idx)
+        vars = vrp.x.select("*", "*", idx)
         for var, coef, xi in zip(vars, _d.flatten(), _x):
             var.Obj = coef - obj_max
             x = xi
             cost[idx] += x * coef
 
     if random_perm:
-        cost = {k: v for k, v in enumerate(np.random.choice(range(len(d)), len(d), replace=False))}
+        cost = {
+            k: v
+            for k, v in enumerate(
+                np.random.choice(range(len(d)), len(d), replace=False)
+            )
+        }
 
     relax_coup_depot_constrs(vrp)
     for idx in vrp.J:
-        fix_var_to_0(vrp.x.select('*', '*', idx))
+        fix_var_to_0(vrp.x.select("*", "*", idx))
         vrp.m.update()
 
     fix_idx = set()
@@ -136,7 +146,7 @@ def heur_seq(vrp, d, xk, random_perm=False, bcdpar=None, opt_first=False):
             for _city in vrp.coup.keys():
                 enforce_coup_constrs(vrp, _city)
 
-        x_idx = vrp.x.select('*', '*', idx)
+        x_idx = vrp.x.select("*", "*", idx)
         restore_var_ub_to_1(x_idx)
 
         enforce_depot_constrs(vrp, idx)
@@ -151,7 +161,9 @@ def heur_seq(vrp, d, xk, random_perm=False, bcdpar=None, opt_first=False):
         if vrp.m.SolCount > 0:
             if bcdpar.verbosity > 1:
                 print_circle(vrp.x, idx)
-            total_len += len([xi for xi in vrp.x.select("*", "*", idx) if xi.x > 0.5]) - 1
+            total_len += (
+                len([xi for xi in vrp.x.select("*", "*", idx) if xi.x > 0.5]) - 1
+            )
             fix_var_to_x(x_idx)
 
             tour = set()
@@ -184,11 +196,11 @@ def heur_seq(vrp, d, xk, random_perm=False, bcdpar=None, opt_first=False):
             break
 
     assert all(c.rhs == 1 for c in vrp.depot_out.values())
-    assert all(c.sense == '=' for c in vrp.depot_out.values())
+    assert all(c.sense == "=" for c in vrp.depot_out.values())
     assert all(c.rhs == 1 for c in vrp.depot_in.values())
-    assert all(c.sense == '=' for c in vrp.depot_in.values())
+    assert all(c.sense == "=" for c in vrp.depot_in.values())
     assert all(c.rhs == 1 for c in vrp.coup.values())
-    assert all(c.sense == '=' for c in vrp.coup.values())
+    assert all(c.sense == "=" for c in vrp.coup.values())
 
     # recover old c
     for var, coef in zip(vrp.m.getVars(), old_c):

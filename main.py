@@ -22,14 +22,17 @@ def create_toy_instance():
     # vrp = VRP(V, E, J, c, C, d, a, b, T)
     import json
 
-    capitals_json = json.load(open('capitals.json'))
+    capitals_json = json.load(open("capitals.json"))
     capitals = []
     coordinates = {}
     for state in capitals_json:
-        if state not in ['AK', 'HI']:
-            capital = capitals_json[state]['capital']
+        if state not in ["AK", "HI"]:
+            capital = capitals_json[state]["capital"]
             capitals.append(capital)
-            coordinates[capital] = (float(capitals_json[state]['lat']), float(capitals_json[state]['long']))
+            coordinates[capital] = (
+                float(capitals_json[state]["lat"]),
+                float(capitals_json[state]["long"]),
+            )
     capital_map = {c: i for i, c in enumerate(capitals)}
     coordinates = {capital_map[c]: coordinates[c] for c in capitals}
     capitals = range(len(capitals))
@@ -40,7 +43,9 @@ def create_toy_instance():
         diff = (c1[0] - c2[0], c1[1] - c2[1])
         return math.sqrt(diff[0] * diff[0] + diff[1] * diff[1])
 
-    dist = {(c1, c2): distance(c1, c2) for c1 in capitals for c2 in capitals if c1 != c2}
+    dist = {
+        (c1, c2): distance(c1, c2) for c1 in capitals for c2 in capitals if c1 != c2
+    }
 
     V = capitals
     E = [(c1, c2) for c1 in capitals for c2 in capitals if c1 != c2]
@@ -57,17 +62,15 @@ def create_toy_instance():
 
 def read_solomon(fp="dataset/data/SolomonDataset_v2/r101-25", n_vehicles=10):
     timestamp = int(time.time()).__str__()[:6]
-    pkl_fp = fp + "/data_{}-{}.pkl".format(
-        n_vehicles, timestamp
-    )
+    pkl_fp = fp + "/data_{}-{}.pkl".format(n_vehicles, timestamp)
     try:
         with open(pkl_fp, "rb") as f:
             V, E, J, c, C, d, l, u, T, sl, coordinates = pickle.load(f)
     except FileNotFoundError:
-        V, E, J, c, C, d, l, u, T, sl, coordinates = io_solomon.data_loader(fp, n_vehicles=n_vehicles)
-        with open(fp + "/data_{}-{}.pkl".format(
-                n_vehicles, timestamp
-        ), "wb") as f:
+        V, E, J, c, C, d, l, u, T, sl, coordinates = io_solomon.data_loader(
+            fp, n_vehicles=n_vehicles
+        )
+        with open(fp + "/data_{}-{}.pkl".format(n_vehicles, timestamp), "wb") as f:
             pickle.dump((V, E, J, c, C, d, l, u, T, sl, coordinates), f)
 
     vrp = VRP(V, E, J, c, C, d, l, u, T, sl, coordinates)
@@ -95,7 +98,7 @@ if __name__ == "__main__":
     # vrp.m.Params.PoolSolutions = 50
     vrp.m.Params.PoolSearchMode = 2
     seed = 1234
-    vrp.m.setParam('Seed', seed)
+    vrp.m.setParam("Seed", seed)
     vrp.m.Params.TimeLimit = params_bcd.time_limit
     # vrp.solve()
     # print('Gurobi Running time: %s Seconds' % (time.time() - start_time))
@@ -103,15 +106,13 @@ if __name__ == "__main__":
     # vrp.m.write("vrp.sol")
     # print(vrp.m.objVal)
 
-    # create routing solver
+    # # create routing solver
     route = Route(vrp)
-
-    xk, xh = optimize(bcdpar=params_bcd, vrps=(vrp, vrp_clone), route=route)
+    #
+    xk = optimize(bcdpar=params_bcd, vrps=(vrp, vrp_clone), route=route)
     # vrp.visualize(x=xk)
 
     print("*" * 50)
-    print("*** dual solution")
+    # vrp.visualize(x=None)
     vrp.visualize(x=xk)
     print("*" * 50)
-    print("*** primal heuristic solution")
-    vrp.visualize(x=xh)

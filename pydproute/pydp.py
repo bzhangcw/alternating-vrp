@@ -5,6 +5,7 @@
 # the SWIG interface file instead.
 
 from sys import version_info as _swig_python_version_info
+
 if _swig_python_version_info < (2, 7, 0):
     raise RuntimeError("Python 2.7 or later required")
 
@@ -19,12 +20,17 @@ try:
 except ImportError:
     import __builtin__
 
+
 def _swig_repr(self):
     try:
         strthis = "proxy of " + self.this.__repr__()
     except __builtin__.Exception:
         strthis = ""
-    return "<%s.%s; %s >" % (self.__class__.__module__, self.__class__.__name__, strthis,)
+    return "<%s.%s; %s >" % (
+        self.__class__.__module__,
+        self.__class__.__name__,
+        strthis,
+    )
 
 
 def _swig_setattr_nondynamic_instance_variable(set):
@@ -37,6 +43,7 @@ def _swig_setattr_nondynamic_instance_variable(set):
             set(self, name, value)
         else:
             raise AttributeError("You cannot add instance attributes to %s" % self)
+
     return set_instance_attr
 
 
@@ -46,26 +53,33 @@ def _swig_setattr_nondynamic_class_variable(set):
             set(cls, name, value)
         else:
             raise AttributeError("You cannot add class attributes to %s" % cls)
+
     return set_class_attr
 
 
 def _swig_add_metaclass(metaclass):
     """Class decorator for adding a metaclass to a SWIG wrapped class - a slimmed down version of six.add_metaclass"""
+
     def wrapper(cls):
         return metaclass(cls.__name__, cls.__bases__, cls.__dict__.copy())
+
     return wrapper
 
 
 class _SwigNonDynamicMeta(type):
     """Meta class to enforce nondynamic attributes (no new attributes) for a class"""
+
     __setattr__ = _swig_setattr_nondynamic_class_variable(type.__setattr__)
 
 
 class SwigPyIterator(object):
-    thisown = property(lambda x: x.this.own(), lambda x, v: x.this.own(v), doc="The membership flag")
+    thisown = property(
+        lambda x: x.this.own(), lambda x, v: x.this.own(v), doc="The membership flag"
+    )
 
     def __init__(self, *args, **kwargs):
         raise AttributeError("No constructor defined - class is abstract")
+
     __repr__ = _swig_repr
     __swig_destroy__ = _pydp.delete_SwigPyIterator
 
@@ -116,18 +130,24 @@ class SwigPyIterator(object):
 
     def __sub__(self, *args):
         return _pydp.SwigPyIterator___sub__(self, *args)
+
     def __iter__(self):
         return self
+
 
 # Register SwigPyIterator in _pydp:
 _pydp.SwigPyIterator_swigregister(SwigPyIterator)
 
+
 class double_array_py(object):
-    thisown = property(lambda x: x.this.own(), lambda x, v: x.this.own(v), doc="The membership flag")
+    thisown = property(
+        lambda x: x.this.own(), lambda x, v: x.this.own(v), doc="The membership flag"
+    )
     __repr__ = _swig_repr
 
     def __init__(self, nelements):
         _pydp.double_array_py_swiginit(self, _pydp.new_double_array_py(nelements))
+
     __swig_destroy__ = _pydp.delete_double_array_py
 
     def __getitem__(self, index):
@@ -143,18 +163,24 @@ class double_array_py(object):
     def frompointer(t):
         return _pydp.double_array_py_frompointer(t)
 
+
 # Register double_array_py in _pydp:
 _pydp.double_array_py_swigregister(double_array_py)
+
 
 def double_array_py_frompointer(t):
     return _pydp.double_array_py_frompointer(t)
 
+
 class int_array_py(object):
-    thisown = property(lambda x: x.this.own(), lambda x, v: x.this.own(v), doc="The membership flag")
+    thisown = property(
+        lambda x: x.this.own(), lambda x, v: x.this.own(v), doc="The membership flag"
+    )
     __repr__ = _swig_repr
 
     def __init__(self, nelements):
         _pydp.int_array_py_swiginit(self, _pydp.new_int_array_py(nelements))
+
     __swig_destroy__ = _pydp.delete_int_array_py
 
     def __getitem__(self, index):
@@ -170,8 +196,10 @@ class int_array_py(object):
     def frompointer(t):
         return _pydp.int_array_py_frompointer(t)
 
+
 # Register int_array_py in _pydp:
 _pydp.int_array_py_swigregister(int_array_py)
+
 
 def int_array_py_frompointer(t):
     return _pydp.int_array_py_frompointer(t)
@@ -180,38 +208,52 @@ def int_array_py_frompointer(t):
 def new_doubleP():
     return _pydp.new_doubleP()
 
+
 def copy_doubleP(value):
     return _pydp.copy_doubleP(value)
+
 
 def delete_doubleP(obj):
     return _pydp.delete_doubleP(obj)
 
+
 def doubleP_assign(obj, value):
     return _pydp.doubleP_assign(obj, value)
+
 
 def doubleP_value(obj):
     return _pydp.doubleP_value(obj)
 
+
 def new_intP():
     return _pydp.new_intP()
+
 
 def copy_intP(value):
     return _pydp.copy_intP(value)
 
+
 def delete_intP(obj):
     return _pydp.delete_intP(obj)
+
 
 def intP_assign(obj, value):
     return _pydp.intP_assign(obj, value)
 
+
 def intP_value(obj):
     return _pydp.intP_value(obj)
+
+
 class DoubleVector(object):
-    thisown = property(lambda x: x.this.own(), lambda x, v: x.this.own(v), doc="The membership flag")
+    thisown = property(
+        lambda x: x.this.own(), lambda x, v: x.this.own(v), doc="The membership flag"
+    )
     __repr__ = _swig_repr
 
     def iterator(self):
         return _pydp.DoubleVector_iterator(self)
+
     def __iter__(self):
         return self.iterator()
 
@@ -307,17 +349,23 @@ class DoubleVector(object):
 
     def capacity(self):
         return _pydp.DoubleVector_capacity(self)
+
     __swig_destroy__ = _pydp.delete_DoubleVector
+
 
 # Register DoubleVector in _pydp:
 _pydp.DoubleVector_swigregister(DoubleVector)
 
+
 class IntVector(object):
-    thisown = property(lambda x: x.this.own(), lambda x, v: x.this.own(v), doc="The membership flag")
+    thisown = property(
+        lambda x: x.this.own(), lambda x, v: x.this.own(v), doc="The membership flag"
+    )
     __repr__ = _swig_repr
 
     def iterator(self):
         return _pydp.IntVector_iterator(self)
+
     def __iter__(self):
         return self.iterator()
 
@@ -413,13 +461,15 @@ class IntVector(object):
 
     def capacity(self):
         return _pydp.IntVector_capacity(self)
+
     __swig_destroy__ = _pydp.delete_IntVector
+
 
 # Register IntVector in _pydp:
 _pydp.IntVector_swigregister(IntVector)
 
 
 def run_dp(n, m, f, D, I, J, V, c, T, S, a, b, C, verbose, inexact, timelimit):
-    return _pydp.run_dp(n, m, f, D, I, J, V, c, T, S, a, b, C, verbose, inexact, timelimit)
-
-
+    return _pydp.run_dp(
+        n, m, f, D, I, J, V, c, T, S, a, b, C, verbose, inexact, timelimit
+    )

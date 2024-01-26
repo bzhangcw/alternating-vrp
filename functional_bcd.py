@@ -28,15 +28,13 @@ from route import Route
 
 from enum import IntEnum
 
-import heur_seq as hseq
-import heur_twostage as h2s
+from heur_seq import heur_seq
 from vrp import VRP
 
 
 class Primal(IntEnum):
     Null = 0  # there is no primal algorithm
     SetPar = 1  # set partitioning
-    TwoStage = 2  # two-stage heuristic
 
 
 class Dual(IntEnum):
@@ -70,11 +68,6 @@ ALGORITHM_TYPE = {
     "prox-II": (Dual.ProxLinearCapacityTW, DualSubproblem.Route, Primal.Null),
     "prox-III": (Dual.ProxLinear, DualSubproblem.CapaRoute, Primal.Null),
     "prox-III-tw": (Dual.ProxLinear, DualSubproblem.CapaWindowRoute, Primal.Null),
-    "prox-III-tw-2s": (
-        Dual.ProxLinear,
-        DualSubproblem.CapaWindowRoute,
-        Primal.TwoStage,
-    ),
     "prox-III-h": (Dual.ProxLinear, DualSubproblem.CapaRoute, Primal.SetPar),
     "prox-IV": (Dual.ProxLinear, DualSubproblem.Route, Primal.Null),
     "prox-V": (Dual.ProxLinearCapacity_nal, DualSubproblem.Route, Primal.Null),
@@ -105,18 +98,10 @@ class BCDParams(object):
     parser.add_argument(
         "--method",
         type=str,
-        default="prox-III-tw-2s",
+        default="prox-III-tw",
         choices=[*list(ALGORITHM_TYPE.keys())],
         help="""
         Choose algorithm
-        """,
-    )
-    parser.add_argument(
-        "--primal_freq",
-        type=int,
-        default=10,
-        help="""
-        the frequency to use primal feasible solution    
         """,
     )
     parser.add_argument(
@@ -154,13 +139,13 @@ class BCDParams(object):
     parser.add_argument(
         "--fp",
         type=str,
-        default="dataset/data/SolomonDataset_v2/rc101-50",
+        default="dataset/data/SolomonDataset_v2/rc101-50r",
         help="""data path""",
     )
     parser.add_argument(
         "--n_vehicles",
         type=int,
-        default=12,
+        default=8,
         help="""
         number of vehicles used
         """,
@@ -168,7 +153,7 @@ class BCDParams(object):
     parser.add_argument(
         "--sigma",
         type=float,
-        default=1.1,
+        default=1.8,
         help="""
         sigma
         """,
@@ -176,7 +161,7 @@ class BCDParams(object):
     parser.add_argument(
         "--tsig",
         type=float,
-        default=1.1,
+        default=1.4,
         help="""
         tau_sig
         """,
@@ -187,6 +172,14 @@ class BCDParams(object):
         default=1,
         help="""
         rho0
+        """,
+    )
+    parser.add_argument(
+        "--tau0",
+        type=float,
+        default=6,
+        help="""
+        tau0
         """,
     )
 
@@ -219,7 +212,7 @@ class BCDParams(object):
         self.sigma = 1
         self.tsig = 1
         self.rho0 = 1
-        self.primal_freq = 1
+        self.tau0 = 6
         self.parse_environ()
 
     def parse_environ(self):
@@ -238,7 +231,7 @@ class BCDParams(object):
         self.sigma = self.args.sigma
         self.tsig = self.args.tsig
         self.rho0 = self.args.rho0
-        self.primal_freq = self.args.primal_freq
+        self.tau0 = self.args.tau0
 
     def update_bound(self, lb):
         if lb >= self.lb:
@@ -454,18 +447,18 @@ def show_log_header(bcdpar: BCDParams):
         "{:^5s}",
         "{:^7s}",
         "{:^8s}",
-        "{:^8s}",
         "{:^9s}",
         "{:^8s}",
-        "{:^8s}",
+        "{:^10s}",
+        "{:^10s}",
+        "{:^10s}",
         "{:^9s}",
         "{:^9s}",
         "{:^9s}",
-        "{:^8s}",
         "{:4s}",
     ]
     _log_header = " ".join(slots).format(*headers)
-    lt = _log_header.__len__() + 2
+    lt = _log_header.__len__()
     print("*" * lt)
     print(("{:^" + f"{lt}" + "}").format("BCD for MILP"))
     print(("{:^" + f"{lt}" + "}").format("(c) Chuwen Zhang, Shanwen Pu, Rui Wang"))
@@ -478,7 +471,6 @@ def show_log_header(bcdpar: BCDParams):
     print((f" :dual_linearize        : {bcdpar.dual_linearize}"))
     print((f" :dual_linearize_inner  : {bcdpar.dual_linearize_max}"))
     print((f" :primal_method         : {bcdpar.primal_method.name}"))
-    print((f" :primal_frequency      : {bcdpar.primal_freq}"))
     print("*" * lt)
     print(_log_header)
     print("*" * lt)
@@ -511,7 +503,6 @@ def optimize(bcdpar: BCDParams, vrps: Tuple[VRP, VRP], route: Route):
 
     """
     # data
-    global eps_pfeas_Axb
     start_time = time.time()
     vrp, vrp_clone = vrps
     block_data = vrp.block_data
@@ -550,7 +541,7 @@ def optimize(bcdpar: BCDParams, vrps: Tuple[VRP, VRP], route: Route):
     # nA={idx: 0 for idx, _A in enumerate(A)}
     # for idx in range(nblock):
     #     nA[idx] = scipy.sparse.linalg.norm(A[idx])
-    tau = 6.05 / (scipy.sparse.linalg.norm(A1) * rhol)
+    tau = bcdpar.tau0 / (scipy.sparse.linalg.norm(A1) * rhol)
     sigma = bcdpar.sigma
     tsig = bcdpar.tsig
     rhofact1 = 0.9
@@ -561,22 +552,18 @@ def optimize(bcdpar: BCDParams, vrps: Tuple[VRP, VRP], route: Route):
     subtolx = subtolc = 1 / rho0
     # primal variables
     xk = [np.ones((n, 1)) for _ in A]
+    # xk = [np.random.randint(2, size=(n, 1)) for _ in A]
     wk = [np.zeros((m + 1, 1)) for _ in A]
-    # primal heurisic solutions
-    xkh = None
     # projection operator for w
     _proj = lambda x, θ: -np.linalg.solve(P.T @ P, P.T @ (M * x - q + θ / rho))
     # dual variables
+    # lbd = rho * np.ones((m, 1)) * 5
     lbd = rho * np.zeros((m, 1))
     mu = [0 for _ in A]
     theta = [rho * np.zeros((n, 1)) for _ in A]
-    bool_updated_primal = False
+
     # logger
-    _LOG_FORMAT = (
-        lambda x: "{:03d} {:4.1e} {:+8.2f} {:+9.1f}* {:+8.2f} {:+.3e} {:+.0e} {:+.1e} {:+.3e} {:+.3e} {:.2e} {:04d}"
-        if x
-        else "{:03d} {:4.1e} {:+8.2f} {:+9.1f}  {:+8.2f} {:+.3e} {:+.0e} {:+.1e} {:+.3e} {:+.3e} {:.2e} {:04d}"
-    )
+    _LOG_FORMAT = "{:03d} {:8.2f} {:+8.2f} {:+9.2f} {:+9.2f} {:+.3e} {:+.3e} {:+.3e} {:+.3e} {:+.3e} {:.2e} {:04d}"
     show_log_header(bcdpar)
 
     # - k: outer iteration num
@@ -598,7 +585,9 @@ def optimize(bcdpar: BCDParams, vrps: Tuple[VRP, VRP], route: Route):
     _grad = {idx: 0 for idx, _ in enumerate(A)}
     ub_bst = np.inf
     for k in range(bcdpar.iter_max):
-
+        x_old = xk.copy()
+        lbd_old = lbd.copy()
+        # tau_old =tau.copy()
         _Ax_old = sum(_vAx.values())
         ############################################
         # dual update (BCD/ALM/ADMM)
@@ -632,7 +621,6 @@ def optimize(bcdpar: BCDParams, vrps: Tuple[VRP, VRP], route: Route):
             _d_it = []
 
             for tauk in range(20):
-
                 al_func = al_func_new
                 for idx in range(nblock):
                     if (time.time() - start_time) > bcdpar.time_limit:
@@ -641,7 +629,6 @@ def optimize(bcdpar: BCDParams, vrps: Tuple[VRP, VRP], route: Route):
                     # update gradient
                     ############################################
                     Ak = A[idx]
-                    _Ax = sum(_vAx.values())
                     ############################################
                     # create dual cost
                     ############################################
@@ -832,10 +819,8 @@ def optimize(bcdpar: BCDParams, vrps: Tuple[VRP, VRP], route: Route):
                         # otherwise, you update in the after bcd for x
                         #   if it is a VRPTW
                         _x = route.solve_primal_by_tsp(_d.flatten(), mode=2)
-                        ### use DP to solve
-                        # bool_inexact = False  # True if ((it <= 1) or (eps_pfeas_Axb > 2.0)) else False
-                        # _x,_ = route.solve_primal_by_dp(_d.flatten(), verbose=bcdpar.verbosity > 2, inexact=bool_inexact)
-
+                        # wk[idx] = _w = _proj(xk[idx], theta[idx])
+                        # raise ValueError("not implemented")
                     elif bcdpar.dual_method == DualSubproblem.Assignment:
                         _x = route.solve_primal_by_assignment(_d.flatten(), mode=0)
                     elif bcdpar.dual_method == DualSubproblem.CapaAssignment:
@@ -857,6 +842,7 @@ def optimize(bcdpar: BCDParams, vrps: Tuple[VRP, VRP], route: Route):
                     _vAx[idx] = Ak @ _x
                     _vcx[idx] = _cx = d[idx] @ _x.flatten()
                     _vcxl[idx] = _cx
+                    _Ax = sum(_vAx.values())
                     # calculate violation of capacity if relaxed
                     if bcdpar.dual_update in {Dual.ProxLinear}:
                         _vBx[idx] = 0
@@ -872,13 +858,13 @@ def optimize(bcdpar: BCDParams, vrps: Tuple[VRP, VRP], route: Route):
                         _vWx[idx] = np.zeros_like(theta[idx])
 
                     # save circle
-                    if bcdpar.primal_method == Primal.SetPar:
+                    if bcdpar.primal_method not in {Primal.Null}:
                         _s = _x.tostring()
                         list_xk[idx].append(_x)
                         block_nodes[idx].append(_s)
                         G.add_node(_s)
                         detect_conflict(G, _s, idx, block_nodes, var_map)
-                    _d_it.append(_d)  # save each d in inner iter
+                        _d_it.append(_d)  # save each d in inner iter
 
                 al_func_new = (
                     sum(_vcx.values())
@@ -898,7 +884,7 @@ def optimize(bcdpar: BCDParams, vrps: Tuple[VRP, VRP], route: Route):
                     tau /= tsig
                     # tau = 60 / (scipy.sparse.linalg.norm(A1) * rhol)
 
-                _d_k[it] = _d_it  # save each iter's d's
+            _d_k[it] = _d_it  # save each iter's d's
 
             relerr = sum(_eps_fix_point.values()) / max(
                 1, sum(_xnorm[idx] for idx in range(nblock))
@@ -941,41 +927,19 @@ def optimize(bcdpar: BCDParams, vrps: Tuple[VRP, VRP], route: Route):
         )
         eps_fp = sum(_eps_fix_point.values())
 
-        # if eps_pfeas == 0 and eps_fp < 1e-4 and np.count_nonzero(_nonnegative( b-_Ax))<=1:
-        #     print(np.count_nonzero(_Ax-b))
-        #     break
-        if eps_pfeas == 0 and eps_fp < 1e-4:
-            # print(np.count_nonzero(_Ax-b))
-            _log_line = _LOG_FORMAT(False).format(
-                k,
-                _iter_time,
-                cx,
-                ub_bst,
-                lobj,
-                eps_pfeas_Axb,
-                eps_pfeas_cap,
-                eps_fp,
-                rhol,
-                rhom,
-                tau,
-                it + 1,
-            )
-            print(_log_line)
-            break
-
         ############################################
         # primal update: some heuristic
         ############################################
         # ADD A PRIMAL METHOD FOR FEASIBLE SOLUTION
 
         ub_flag = ""
-        if bcdpar.primal_method == Primal.SetPar:
+        if bcdpar.primal_method not in {Primal.Null}:
             # mis_heur(G, xk, (nblock, A, b, k, n, d), c)
             # set_par_heur(list_xk, d, var_map, N)
             suc_cnt = 0
             ub_seq = np.inf
             for it, _d_it in _d_k.items():
-                ub_seq_new = hseq.heur_seq(
+                ub_seq_new = heur_seq(
                     vrp_clone,
                     _d_it,
                     xk,
@@ -995,15 +959,6 @@ def optimize(bcdpar: BCDParams, vrps: Tuple[VRP, VRP], route: Route):
                 ub_flag += "S"
 
             ub_bst = min(ub_bst, ub_seq)
-        elif bcdpar.primal_method == Primal.TwoStage:
-            if (k % bcdpar.primal_freq == 0) or (eps_pfeas_Axb < 2):
-                _xh, ub_h2s = h2s.main(
-                    xk, A, _d_it, d,_vcx, _vAx, route, verbose=bcdpar.verbosity > 2
-                )
-                bool_updated_primal = ub_h2s < ub_bst
-                if ub_h2s < ub_bst:
-                    xkh = _xh
-                    ub_bst = ub_h2s
 
         # if bcdpar.verbosity > 1:
         #     show_log_header(bcdpar)
@@ -1011,7 +966,7 @@ def optimize(bcdpar: BCDParams, vrps: Tuple[VRP, VRP], route: Route):
         #     k, _iter_time, ub_bst, cx, lobj, eps_pfeas_Axb, eps_pfeas_cap, eps_fp, rhol, rhom, tau, it + 1
         # )
         # print(_log_line)
-        _log_line = _LOG_FORMAT(bool_updated_primal).format(
+        _log_line = _LOG_FORMAT.format(
             k,
             _iter_time,
             cx,
@@ -1026,18 +981,19 @@ def optimize(bcdpar: BCDParams, vrps: Tuple[VRP, VRP], route: Route):
             it + 1,
         )
         print(_log_line)
-        if eps_pfeas == 0 and eps_fp < 1e-4:
-            break
 
         ############################################
         # update dual variables
         ###########################################
-        lbd += rhol * (_Ax - b)
+        # lbd += rhol * (_Ax - b)
+        alphak = 20 / (math.sqrt(2) * eps_pfeas_Axb)
+        lbd += alphak * (_Ax - b)
         if np.linalg.norm(_Ax - b) <= etax:
             etax = min(max(etax / rhol**rhofact1, ctol), 1)
             subtolx = min(max(subtolx / rhol, gtol), 1)
         else:
             rhol = min(rhol * sigma, maxrho)
+            # rhol += alphak * eps_pfeas_Axb
             etax = min(5 * etax, max(1 / rhol**rhofact2, ctol))
             subtolx = min(max(1 / rhol, ctol), 1)
 
@@ -1062,4 +1018,15 @@ def optimize(bcdpar: BCDParams, vrps: Tuple[VRP, VRP], route: Route):
 
         bcdpar.iter += 1
 
-    return xk, xkh
+        if eps_pfeas == 0 and eps_fp < 1e-4:
+            # rhol = 1
+            # lbd =  lbd_old
+            # xk = [np.zeros((n, 1)) for _ in A]
+            # # lbd = np.zeros((m, 1))
+            # # xk = x_old.copy()
+            # # tau = tau_old
+            # tau = tau * tsig
+            # rhol =rhol/tsig
+            break
+
+    return xk

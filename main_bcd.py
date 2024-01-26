@@ -7,9 +7,7 @@ import data as ms
 from util import SysParams
 
 
-
-
-if __name__ == '__main__':
+if __name__ == "__main__":
     # example usage.
     params_sys = SysParams()
     params_subgrad = SubgradParam()
@@ -22,7 +20,6 @@ if __name__ == '__main__':
     ms.setup(params_sys)
 
     model_dict, global_index, model_index = create_decomposed_models()
-
 
     mat_dict = generate_matlab_dict(model_dict, global_index, model_index)
 

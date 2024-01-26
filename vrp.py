@@ -41,7 +41,9 @@ class VRP:
         self.m = None
 
         # variables
-        self.x = None  # x[s,t,j] = 1 if arc (s,t) is used on the route of vehicle j, 0 o.w.
+        self.x = (
+            None  # x[s,t,j] = 1 if arc (s,t) is used on the route of vehicle j, 0 o.w.
+        )
         self.w = None
 
         # constraints
@@ -64,57 +66,105 @@ class VRP:
             self.m = Model("VRP")
 
     def add_vars(self):
-        self.x = self.m.addVars([(s, t, j) for j in self.J for s, t in self.E], vtype=CONST.BINARY, **name_prefix("x"))
+        self.x = self.m.addVars(
+            [(s, t, j) for j in self.J for s, t in self.E],
+            vtype=CONST.BINARY,
+            **name_prefix("x"),
+        )
         self.m._x = self.x
 
-        self.w = self.m.addVars([(s, j) for j in self.J for s in self.V], vtype=CONST.INTEGER,
-                            **name_prefix("w"))
+        self.w = self.m.addVars(
+            [(s, j) for j in self.J for s in self.V],
+            vtype=CONST.INTEGER,
+            **name_prefix("w"),
+        )
+
     def add_constrs(self):
         self.m._lazy_cons = []
         self.coup = self.m.addConstrs(
-            (quicksum(self.x[s, t, j] for s in self.in_neighbours(t) if s != t for j in self.J)
-             ==
-             1
-             for t in self.V_0),
-            **name_prefix("coup"))
+            (
+                quicksum(
+                    self.x[s, t, j]
+                    for s in self.in_neighbours(t)
+                    if s != t
+                    for j in self.J
+                )
+                == 1
+                for t in self.V_0
+            ),
+            **name_prefix("coup"),
+        )
 
         self.depot_out = self.m.addConstrs(
-            (quicksum(self.x[self.p, t, j] for t in self.V_0 if (self.p, t) in self.E) == 1
-             for j in self.J),
-            **name_prefix("depot_out"))
+            (
+                quicksum(
+                    self.x[self.p, t, j] for t in self.V_0 if (self.p, t) in self.E
+                )
+                == 1
+                for j in self.J
+            ),
+            **name_prefix("depot_out"),
+        )
         self.depot_in = self.m.addConstrs(
-            (quicksum(self.x[t, self.p, j] for t in self.V_0 if (t, self.p) in self.E) == 1
-             for j in self.J),
-            **name_prefix("depot_in"))
+            (
+                quicksum(
+                    self.x[t, self.p, j] for t in self.V_0 if (t, self.p) in self.E
+                )
+                == 1
+                for j in self.J
+            ),
+            **name_prefix("depot_in"),
+        )
 
-        self.flow = self.m.addConstrs((quicksum(self.x[s, t, j] for s in self.in_neighbours(t) if s != t)
-                                       ==
-                                       quicksum(self.x[t, s, j] for s in self.out_neighbours(t) if s != t)
-                                       for t in self.V
-                                       for j in self.J),
-                                      **name_prefix("flow"))
+        self.flow = self.m.addConstrs(
+            (
+                quicksum(self.x[s, t, j] for s in self.in_neighbours(t) if s != t)
+                == quicksum(self.x[t, s, j] for s in self.out_neighbours(t) if s != t)
+                for t in self.V
+                for j in self.J
+            ),
+            **name_prefix("flow"),
+        )
 
-        self.capa = self.m.addConstrs((quicksum(
-            self.c[t] * self.x[s, t, j] for s in self.V for t in self.out_neighbours(s) if s != t and t != self.p)
-                                       <=
-                                       self.C
-                                       for j in self.J),
-                                      **name_prefix("capa"))
+        self.capa = self.m.addConstrs(
+            (
+                quicksum(
+                    self.c[t] * self.x[s, t, j]
+                    for s in self.V
+                    for t in self.out_neighbours(s)
+                    if s != t and t != self.p
+                )
+                <= self.C
+                for j in self.J
+            ),
+            **name_prefix("capa"),
+        )
 
         # self.tw = None  # FIXME
 
         self.tw_lb = self.m.addConstrs(
             (self.a[s] <= self.w[s, j] for s in self.V for j in self.J),
-            **name_prefix("tw_lb"))
+            **name_prefix("tw_lb"),
+        )
         self.tw_ub = self.m.addConstrs(
             (self.w[s, j] <= self.b[s] for s in self.V for j in self.J),
-            **name_prefix("tw_ub"))
+            **name_prefix("tw_ub"),
+        )
 
         M = 1e5
         self.tw = self.m.addConstrs(
-            (self.w[s, j] + self.T[s, t] + self.service_time[s] - M * (1 - self.x[s, t, j]) <= self.w[t, j]
-             for s, t in self.E if t != self.p for j in self.J),
-            **name_prefix("time_window"))
+            (
+                self.w[s, j]
+                + self.T[s, t]
+                + self.service_time[s]
+                - M * (1 - self.x[s, t, j])
+                <= self.w[t, j]
+                for s, t in self.E
+                if t != self.p
+                for j in self.J
+            ),
+            **name_prefix("time_window"),
+        )
         #
         # 啊啊啊这块真的要哭了，搞了好久，终于让我知道了bug在哪，这里要注意t != self.p(0)，因为初始点和终点都是w0,但是不能让这个时间为两个数，
         # 所以这块不用考虑回到depot的问题，因为所有的车都可以满足这个回到depot的时间
@@ -142,8 +192,13 @@ class VRP:
 
     def add_obj(self):
         self.m.setObjective(
-            quicksum(self.d[s, t] * self.x[s, t, j] for idx, (s, t) in enumerate(self.E) for j in self.J),
-            CONST.MINIMIZE)
+            quicksum(
+                self.d[s, t] * self.x[s, t, j]
+                for idx, (s, t) in enumerate(self.E)
+                for j in self.J
+            ),
+            CONST.MINIMIZE,
+        )
 
     def in_neighbours(self, t):
         return [s for s in self.V if (s, t) in self.E]
@@ -174,8 +229,11 @@ class VRP:
             b = np.array(self.m.getAttr("RHS", self.m.getConstrs()))
             c = np.array(self.m.getAttr("Obj", self.m.getVars()))
 
-            var_indice = [[v.index for v in self.x.select('*', '*', j)] for j in self.J]
-            var_ind_name_map = {j: {v.index: v.varName for v in self.x.select('*', '*', j)} for j in self.J}
+            var_indice = [[v.index for v in self.x.select("*", "*", j)] for j in self.J]
+            var_ind_name_map = {
+                j: {v.index: v.varName for v in self.x.select("*", "*", j)}
+                for j in self.J
+            }
             coup_indice = [c.index for c in self.coup.values()]
 
             self.block_data["A"] = []  # couple A
@@ -193,7 +251,9 @@ class VRP:
                 A_j = A[:, var_indice[j]]
                 c_j = c[var_indice[j]]
 
-                sub_indice = [self.depot_out[j].index, self.depot_in[j].index] + [c.index for c in self.flow.select('*', j)]
+                sub_indice = [self.depot_out[j].index, self.depot_in[j].index] + [
+                    c.index for c in self.flow.select("*", j)
+                ]
                 capa_indice = [self.capa[j].index]
 
                 self.block_data["A"].append(A_j[coup_indice, :])
@@ -205,28 +265,45 @@ class VRP:
 
                 n_constrs += len(coup_indice) + len(sub_indice) + len(capa_indice)
                 logs.append(
-                    dict(zip(
-                        ["idx", "Ak", "Bk", "bk", "ck"],
-                        [j, _matrix_size(A_j[coup_indice, :].shape), _matrix_size(A_j[sub_indice, :].shape), len(b),
-                         _matrix_size(A_j[capa_indice, :].shape)]
-                    ))
+                    dict(
+                        zip(
+                            ["idx", "Ak", "Bk", "bk", "ck"],
+                            [
+                                j,
+                                _matrix_size(A_j[coup_indice, :].shape),
+                                _matrix_size(A_j[sub_indice, :].shape),
+                                len(b),
+                                _matrix_size(A_j[capa_indice, :].shape),
+                            ],
+                        )
+                    )
                 )
 
             # assert n_constrs == A.shape[0] + (len(self.J) - 1) * len(self.coup)
 
             # M, T matrix in time-window constraint
             # [l, u] is the time window
-            self.block_data['P'], self.block_data['T'], \
-            self.block_data['l'], self.block_data['u'] \
-                = self.get_window_matvec()
+            (
+                self.block_data["P"],
+                self.block_data["T"],
+                self.block_data["l"],
+                self.block_data["u"],
+            ) = self.get_window_matvec()
 
             df = pd.DataFrame.from_records(logs)
             log_tables = df.to_markdown(tablefmt="grid", index=False)
-            lines = log_tables.split('\n')
+            lines = log_tables.split("\n")
             print(lines[0])
-            print(("|{:^" + f"{lines[0].__len__() - 2}" + "}|").format(
-                "multi-block model info for cvrp"))
-            print(("|{:^" + f"{lines[0].__len__() - 2}" + "}|").format("showing first 10 blocks"))
+            print(
+                ("|{:^" + f"{lines[0].__len__() - 2}" + "}|").format(
+                    "multi-block model info for cvrp"
+                )
+            )
+            print(
+                ("|{:^" + f"{lines[0].__len__() - 2}" + "}|").format(
+                    "showing first 10 blocks"
+                )
+            )
             print("\n".join(lines[0:23]))
 
     def solve(self, callback=True):
@@ -265,7 +342,9 @@ class VRP:
             for j0 in self.J:
                 V = set()
                 selected = tuplelist(
-                    (s, t) for s, t, j in model._x.keys() if j == j0 and x_vals[s, t, j] > 0.5
+                    (s, t)
+                    for s, t, j in model._x.keys()
+                    if j == j0 and x_vals[s, t, j] > 0.5
                 )
                 for s, t in selected:
                     V.add(s)
@@ -275,7 +354,10 @@ class VRP:
                 tour = self.subtour(selected)
                 if len(tour) < len(V):
                     # add subtour elimination constr. for every pair of cities in subtour
-                    tmp_con = quicksum(model._x[s, t, j0] for s, t in permutations(tour, 2)) <= len(tour) - 1
+                    tmp_con = (
+                        quicksum(model._x[s, t, j0] for s, t in permutations(tour, 2))
+                        <= len(tour) - 1
+                    )
                     model.cbLazy(tmp_con)
                     # self.m._lazy_cons.append(tmp_con)
                     # print(tmp_con)
@@ -285,12 +367,14 @@ class VRP:
         V = list(set([i for i, j in edges] + [j for i, j in edges]))
         unvisited = V[:]
         cycle = V[:]  # Dummy - guaranteed to be replaced
-        depot_connected = [j for i, j in edges.select(self.p, '*')]
+        depot_connected = [j for i, j in edges.select(self.p, "*")]
         unvisited.remove(self.p)
         while depot_connected:
             current = depot_connected.pop()
             unvisited.remove(current)
-            neighbors = [j for i, j in edges.select(current, '*') if j in unvisited and j != 0]
+            neighbors = [
+                j for i, j in edges.select(current, "*") if j in unvisited and j != 0
+            ]
             depot_connected += neighbors
 
         while unvisited:  # true if list is non-empty
@@ -308,12 +392,11 @@ class VRP:
     def visualize(self, x=None):
         if x is None:
             # get own solution by MIP
-            x = self.m.getAttr('x', self.m._x).values()
+            x = self.m.getAttr("x", self.m._x).values()
             x = np.array(x).reshape(len(self.J), len(self.E)).round().astype(np.int8)
         solution = []
         cc = np.array(self.c)
         for xk in x:
-
             e = xk.nonzero()[0]
             edges = [self.E[ee] for ee in e]
             edges_dict = dict(edges)
@@ -328,12 +411,10 @@ class VRP:
                     break
                 i = nx
 
-            solution.append([nodes, len(nodes), len(edges), cc[nodes].sum(), sum(self.d[e] for e in edges) ])
+            solution.append([nodes, len(nodes), len(edges), cc[nodes].sum()])
 
-        df = pd.DataFrame(solution, columns=['route-r', '|r|', '|Er|', 'sum(c)', 'cost'])
+        df = pd.DataFrame(solution, columns=["route-r", "|r|", "|Er|", "sum(c)"])
         print(df.to_markdown())
-        print(f"total cost: {df.cost.sum():.2f}")
-
         pass
 
 

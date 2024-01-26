@@ -39,7 +39,7 @@ def log_header():
 
 def admm():
     # loop for each ADMM iterations
-    _logger.name = 'admm'
+    _logger.name = "admm"
     start_time = time.time()
     for i in range(g_number_of_ADMM_iterations):
         if i % 20 == 0:
@@ -178,7 +178,6 @@ def admm():
         ADMM_local_upperbound_seq = gls.ADMM_local_upperbound[i]
         bool_use_mis = False
         if gls.alg.alg_primal != "classical":
-
             #
             mis_helper.update(gls.g_ending_state_vector)
             ff, cost, visits = mis_helper.compute_best_collection(

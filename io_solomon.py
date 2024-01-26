@@ -130,12 +130,11 @@ def g_ReadInputData(path, n_vehicles=10):
             g_number_of_nodes += 1
             g_number_of_customers += 1
             if g_number_of_nodes % 100 == 0:
-                print('reading {} nodes..' \
-                      .format(g_number_of_nodes))
+                print("reading {} nodes..".format(g_number_of_nodes))
         except:
-            print('Bad read. Check file your self')
-    print('nodes_number:{}'.format(g_number_of_nodes))
-    print('customers_number:{}'.format(g_number_of_customers))
+            print("Bad read. Check file your self")
+    print("nodes_number:{}".format(g_number_of_nodes))
+    print("customers_number:{}".format(g_number_of_customers))
 
     # set the destination node
     node = Node()
@@ -148,10 +147,10 @@ def g_ReadInputData(path, n_vehicles=10):
 
     V = list(set([node.node_id for node in g_node_list]))
 
-    with open(path + '/input_link.csv', 'r') as fl:
+    with open(path + "/input_link.csv", "r") as fl:
         linel = fl.readlines()
         for l in linel[1:]:
-            l = l.strip().split(',')
+            l = l.strip().split(",")
 
             link = Link()
             link.link_id = int(l[0])
@@ -163,16 +162,17 @@ def g_ReadInputData(path, n_vehicles=10):
             if link.from_node_id not in V or link.to_node_id not in V:
                 continue
             g_node_list[link.from_node_id].outbound_node_list.append(link.to_node_id)
-            g_node_list[link.from_node_id].outbound_node_size = len(g_node_list[link.from_node_id].outbound_node_list)
+            g_node_list[link.from_node_id].outbound_node_size = len(
+                g_node_list[link.from_node_id].outbound_node_list
+            )
             g_link_list.append(link)
             g_number_of_links += 1
             # add the outbound_link information of each node
             g_node_list[link.from_node_id].outbound_link_list.append(link)
             if g_number_of_links % 8000 == 0:
-                print('reading {} links..' \
-                      .format(g_number_of_links))
+                print("reading {} links..".format(g_number_of_links))
 
-        print('links_number:{}'.format(g_number_of_links))
+        print("links_number:{}".format(g_number_of_links))
 
     for i in range(vehicle_fleet_size):
         agent = Agent()
@@ -181,11 +181,11 @@ def g_ReadInputData(path, n_vehicles=10):
         agent.to_node_id = g_number_of_nodes
         agent.departure_time_beginning = 0
         agent.arrival_time_ending = g_number_of_time_intervals
-        agent.capacity = 200
+        agent.capacity = 1000
         g_agent_list.append(agent)
         g_number_of_vehicles += 1
 
-    print('vehicles_number:{}'.format(g_number_of_vehicles))
+    print("vehicles_number:{}".format(g_number_of_vehicles))
 
     V = list(set(sorted([node.node_id for node in g_node_list])))
     assert 0 in V
@@ -216,9 +216,9 @@ def data_loader(path="dataset/data/SolomonDataset_v2/C101-100", n_vehicles=10):
     return g_ReadInputData(path, n_vehicles)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     V, E, J, c, C, d, l, u, T, sl, coordinates = data_loader()
     from vrp import VRP
 
     VRP(V, E, J, c, C, d, l, u, T, sl, coordinates)
-    print('data_loader finished')
+    print("data_loader finished")
