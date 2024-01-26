@@ -1,7 +1,56 @@
-/home/chuwen/anaconda3/bin/python -u main.py --fp dataset/data/SolomonDataset_v2/C101-100 --verbosity 1 --time_limit 1000 &> C101-100.log
-/home/chuwen/anaconda3/bin/python -u main.py --fp dataset/data/SolomonDataset_v2/r101-100 --verbosity 1 --time_limit 1000 &> r101-100.log
-/home/chuwen/anaconda3/bin/python -u main.py --fp dataset/data/SolomonDataset_v2/r101-25 --verbosity 1 --time_limit 1000 &> r101-25.log
-/home/chuwen/anaconda3/bin/python -u main.py --fp dataset/data/SolomonDataset_v2/r101-50 --verbosity 1 --time_limit 1000 &> r101-50.log
-/home/chuwen/anaconda3/bin/python -u main.py --fp dataset/data/SolomonDataset_v2/rc101-100 --verbosity 1 --time_limit 1000 &> rc101-100.log
-/home/chuwen/anaconda3/bin/python -u main.py --fp dataset/data/SolomonDataset_v2/rc101-25 --verbosity 1 --time_limit 1000 &> rc101-25.log
-/home/chuwen/anaconda3/bin/python -u main.py --fp dataset/data/SolomonDataset_v2/rc101-50 --verbosity 1 --time_limit 1000 &> rc101-50.log
+python main.py --fp dataset/solomon-100-original/c101.txt --sigma 1.8 --tsig 1.5 --rho0 1 --n_vehicles 4 --n_customers 25 --output output-202402261502/c101.4-25.json &> output-202402261502/c101.4-25.log
+python main.py --fp dataset/solomon-100-original/c102.txt --sigma 1.8 --tsig 1.5 --rho0 1 --n_vehicles 4 --n_customers 25 --output output-202402261502/c102.4-25.json &> output-202402261502/c102.4-25.log
+python main.py --fp dataset/solomon-100-original/c103.txt --sigma 1.8 --tsig 1.5 --rho0 1 --n_vehicles 4 --n_customers 25 --output output-202402261502/c103.4-25.json &> output-202402261502/c103.4-25.log
+python main.py --fp dataset/solomon-100-original/c104.txt --sigma 1.8 --tsig 1.5 --rho0 1 --n_vehicles 4 --n_customers 25 --output output-202402261502/c104.4-25.json &> output-202402261502/c104.4-25.log
+python main.py --fp dataset/solomon-100-original/c105.txt --sigma 1.8 --tsig 1.5 --rho0 1 --n_vehicles 4 --n_customers 25 --output output-202402261502/c105.4-25.json &> output-202402261502/c105.4-25.log
+python main.py --fp dataset/solomon-100-original/c106.txt --sigma 1.8 --tsig 1.5 --rho0 1 --n_vehicles 4 --n_customers 25 --output output-202402261502/c106.4-25.json &> output-202402261502/c106.4-25.log
+python main.py --fp dataset/solomon-100-original/c107.txt --sigma 1.8 --tsig 1.5 --rho0 1 --n_vehicles 4 --n_customers 25 --output output-202402261502/c107.4-25.json &> output-202402261502/c107.4-25.log
+python main.py --fp dataset/solomon-100-original/c108.txt --sigma 1.8 --tsig 1.5 --rho0 1 --n_vehicles 4 --n_customers 25 --output output-202402261502/c108.4-25.json &> output-202402261502/c108.4-25.log
+python main.py --fp dataset/solomon-100-original/c109.txt --sigma 1.8 --tsig 1.5 --rho0 1 --n_vehicles 4 --n_customers 25 --output output-202402261502/c109.4-25.json &> output-202402261502/c109.4-25.log
+python main.py --fp dataset/solomon-100-original/c201.txt --sigma 1.8 --tsig 1.5 --rho0 1 --n_vehicles 4 --n_customers 25 --output output-202402261502/c201.4-25.json &> output-202402261502/c201.4-25.log
+python main.py --fp dataset/solomon-100-original/c202.txt --sigma 1.8 --tsig 1.5 --rho0 1 --n_vehicles 4 --n_customers 25 --output output-202402261502/c202.4-25.json &> output-202402261502/c202.4-25.log
+python main.py --fp dataset/solomon-100-original/c203.txt --sigma 1.8 --tsig 1.5 --rho0 1 --n_vehicles 4 --n_customers 25 --output output-202402261502/c203.4-25.json &> output-202402261502/c203.4-25.log
+python main.py --fp dataset/solomon-100-original/c204.txt --sigma 1.8 --tsig 1.5 --rho0 1 --n_vehicles 4 --n_customers 25 --output output-202402261502/c204.4-25.json &> output-202402261502/c204.4-25.log
+python main.py --fp dataset/solomon-100-original/c205.txt --sigma 1.8 --tsig 1.5 --rho0 1 --n_vehicles 4 --n_customers 25 --output output-202402261502/c205.4-25.json &> output-202402261502/c205.4-25.log
+python main.py --fp dataset/solomon-100-original/c206.txt --sigma 1.8 --tsig 1.5 --rho0 1 --n_vehicles 4 --n_customers 25 --output output-202402261502/c206.4-25.json &> output-202402261502/c206.4-25.log
+python main.py --fp dataset/solomon-100-original/c207.txt --sigma 1.8 --tsig 1.5 --rho0 1 --n_vehicles 4 --n_customers 25 --output output-202402261502/c207.4-25.json &> output-202402261502/c207.4-25.log
+python main.py --fp dataset/solomon-100-original/c208.txt --sigma 1.8 --tsig 1.5 --rho0 1 --n_vehicles 4 --n_customers 25 --output output-202402261502/c208.4-25.json &> output-202402261502/c208.4-25.log
+python main.py --fp dataset/solomon-100-original/r101.txt --sigma 1.8 --tsig 1.5 --rho0 1 --n_vehicles 4 --n_customers 25 --output output-202402261502/r101.4-25.json &> output-202402261502/r101.4-25.log
+python main.py --fp dataset/solomon-100-original/r102.txt --sigma 1.8 --tsig 1.5 --rho0 1 --n_vehicles 4 --n_customers 25 --output output-202402261502/r102.4-25.json &> output-202402261502/r102.4-25.log
+python main.py --fp dataset/solomon-100-original/r103.txt --sigma 1.8 --tsig 1.5 --rho0 1 --n_vehicles 4 --n_customers 25 --output output-202402261502/r103.4-25.json &> output-202402261502/r103.4-25.log
+python main.py --fp dataset/solomon-100-original/r104.txt --sigma 1.8 --tsig 1.5 --rho0 1 --n_vehicles 4 --n_customers 25 --output output-202402261502/r104.4-25.json &> output-202402261502/r104.4-25.log
+python main.py --fp dataset/solomon-100-original/r105.txt --sigma 1.8 --tsig 1.5 --rho0 1 --n_vehicles 4 --n_customers 25 --output output-202402261502/r105.4-25.json &> output-202402261502/r105.4-25.log
+python main.py --fp dataset/solomon-100-original/r106.txt --sigma 1.8 --tsig 1.5 --rho0 1 --n_vehicles 4 --n_customers 25 --output output-202402261502/r106.4-25.json &> output-202402261502/r106.4-25.log
+python main.py --fp dataset/solomon-100-original/r107.txt --sigma 1.8 --tsig 1.5 --rho0 1 --n_vehicles 4 --n_customers 25 --output output-202402261502/r107.4-25.json &> output-202402261502/r107.4-25.log
+python main.py --fp dataset/solomon-100-original/r108.txt --sigma 1.8 --tsig 1.5 --rho0 1 --n_vehicles 4 --n_customers 25 --output output-202402261502/r108.4-25.json &> output-202402261502/r108.4-25.log
+python main.py --fp dataset/solomon-100-original/r109.txt --sigma 1.8 --tsig 1.5 --rho0 1 --n_vehicles 4 --n_customers 25 --output output-202402261502/r109.4-25.json &> output-202402261502/r109.4-25.log
+python main.py --fp dataset/solomon-100-original/r110.txt --sigma 1.8 --tsig 1.5 --rho0 1 --n_vehicles 4 --n_customers 25 --output output-202402261502/r110.4-25.json &> output-202402261502/r110.4-25.log
+python main.py --fp dataset/solomon-100-original/r111.txt --sigma 1.8 --tsig 1.5 --rho0 1 --n_vehicles 4 --n_customers 25 --output output-202402261502/r111.4-25.json &> output-202402261502/r111.4-25.log
+python main.py --fp dataset/solomon-100-original/r112.txt --sigma 1.8 --tsig 1.5 --rho0 1 --n_vehicles 4 --n_customers 25 --output output-202402261502/r112.4-25.json &> output-202402261502/r112.4-25.log
+python main.py --fp dataset/solomon-100-original/r201.txt --sigma 1.8 --tsig 1.5 --rho0 1 --n_vehicles 4 --n_customers 25 --output output-202402261502/r201.4-25.json &> output-202402261502/r201.4-25.log
+python main.py --fp dataset/solomon-100-original/r202.txt --sigma 1.8 --tsig 1.5 --rho0 1 --n_vehicles 4 --n_customers 25 --output output-202402261502/r202.4-25.json &> output-202402261502/r202.4-25.log
+python main.py --fp dataset/solomon-100-original/r203.txt --sigma 1.8 --tsig 1.5 --rho0 1 --n_vehicles 4 --n_customers 25 --output output-202402261502/r203.4-25.json &> output-202402261502/r203.4-25.log
+python main.py --fp dataset/solomon-100-original/r204.txt --sigma 1.8 --tsig 1.5 --rho0 1 --n_vehicles 4 --n_customers 25 --output output-202402261502/r204.4-25.json &> output-202402261502/r204.4-25.log
+python main.py --fp dataset/solomon-100-original/r205.txt --sigma 1.8 --tsig 1.5 --rho0 1 --n_vehicles 4 --n_customers 25 --output output-202402261502/r205.4-25.json &> output-202402261502/r205.4-25.log
+python main.py --fp dataset/solomon-100-original/r206.txt --sigma 1.8 --tsig 1.5 --rho0 1 --n_vehicles 4 --n_customers 25 --output output-202402261502/r206.4-25.json &> output-202402261502/r206.4-25.log
+python main.py --fp dataset/solomon-100-original/r207.txt --sigma 1.8 --tsig 1.5 --rho0 1 --n_vehicles 4 --n_customers 25 --output output-202402261502/r207.4-25.json &> output-202402261502/r207.4-25.log
+python main.py --fp dataset/solomon-100-original/r208.txt --sigma 1.8 --tsig 1.5 --rho0 1 --n_vehicles 4 --n_customers 25 --output output-202402261502/r208.4-25.json &> output-202402261502/r208.4-25.log
+python main.py --fp dataset/solomon-100-original/r209.txt --sigma 1.8 --tsig 1.5 --rho0 1 --n_vehicles 4 --n_customers 25 --output output-202402261502/r209.4-25.json &> output-202402261502/r209.4-25.log
+python main.py --fp dataset/solomon-100-original/r210.txt --sigma 1.8 --tsig 1.5 --rho0 1 --n_vehicles 4 --n_customers 25 --output output-202402261502/r210.4-25.json &> output-202402261502/r210.4-25.log
+python main.py --fp dataset/solomon-100-original/r211.txt --sigma 1.8 --tsig 1.5 --rho0 1 --n_vehicles 4 --n_customers 25 --output output-202402261502/r211.4-25.json &> output-202402261502/r211.4-25.log
+python main.py --fp dataset/solomon-100-original/rc101.txt --sigma 1.8 --tsig 1.5 --rho0 1 --n_vehicles 4 --n_customers 25 --output output-202402261502/rc101.4-25.json &> output-202402261502/rc101.4-25.log
+python main.py --fp dataset/solomon-100-original/rc102.txt --sigma 1.8 --tsig 1.5 --rho0 1 --n_vehicles 4 --n_customers 25 --output output-202402261502/rc102.4-25.json &> output-202402261502/rc102.4-25.log
+python main.py --fp dataset/solomon-100-original/rc103.txt --sigma 1.8 --tsig 1.5 --rho0 1 --n_vehicles 4 --n_customers 25 --output output-202402261502/rc103.4-25.json &> output-202402261502/rc103.4-25.log
+python main.py --fp dataset/solomon-100-original/rc104.txt --sigma 1.8 --tsig 1.5 --rho0 1 --n_vehicles 4 --n_customers 25 --output output-202402261502/rc104.4-25.json &> output-202402261502/rc104.4-25.log
+python main.py --fp dataset/solomon-100-original/rc105.txt --sigma 1.8 --tsig 1.5 --rho0 1 --n_vehicles 4 --n_customers 25 --output output-202402261502/rc105.4-25.json &> output-202402261502/rc105.4-25.log
+python main.py --fp dataset/solomon-100-original/rc106.txt --sigma 1.8 --tsig 1.5 --rho0 1 --n_vehicles 4 --n_customers 25 --output output-202402261502/rc106.4-25.json &> output-202402261502/rc106.4-25.log
+python main.py --fp dataset/solomon-100-original/rc107.txt --sigma 1.8 --tsig 1.5 --rho0 1 --n_vehicles 4 --n_customers 25 --output output-202402261502/rc107.4-25.json &> output-202402261502/rc107.4-25.log
+python main.py --fp dataset/solomon-100-original/rc108.txt --sigma 1.8 --tsig 1.5 --rho0 1 --n_vehicles 4 --n_customers 25 --output output-202402261502/rc108.4-25.json &> output-202402261502/rc108.4-25.log
+python main.py --fp dataset/solomon-100-original/rc201.txt --sigma 1.8 --tsig 1.5 --rho0 1 --n_vehicles 4 --n_customers 25 --output output-202402261502/rc201.4-25.json &> output-202402261502/rc201.4-25.log
+python main.py --fp dataset/solomon-100-original/rc202.txt --sigma 1.8 --tsig 1.5 --rho0 1 --n_vehicles 4 --n_customers 25 --output output-202402261502/rc202.4-25.json &> output-202402261502/rc202.4-25.log
+python main.py --fp dataset/solomon-100-original/rc203.txt --sigma 1.8 --tsig 1.5 --rho0 1 --n_vehicles 4 --n_customers 25 --output output-202402261502/rc203.4-25.json &> output-202402261502/rc203.4-25.log
+python main.py --fp dataset/solomon-100-original/rc204.txt --sigma 1.8 --tsig 1.5 --rho0 1 --n_vehicles 4 --n_customers 25 --output output-202402261502/rc204.4-25.json &> output-202402261502/rc204.4-25.log
+python main.py --fp dataset/solomon-100-original/rc205.txt --sigma 1.8 --tsig 1.5 --rho0 1 --n_vehicles 4 --n_customers 25 --output output-202402261502/rc205.4-25.json &> output-202402261502/rc205.4-25.log
+python main.py --fp dataset/solomon-100-original/rc206.txt --sigma 1.8 --tsig 1.5 --rho0 1 --n_vehicles 4 --n_customers 25 --output output-202402261502/rc206.4-25.json &> output-202402261502/rc206.4-25.log
+python main.py --fp dataset/solomon-100-original/rc207.txt --sigma 1.8 --tsig 1.5 --rho0 1 --n_vehicles 4 --n_customers 25 --output output-202402261502/rc207.4-25.json &> output-202402261502/rc207.4-25.log
+python main.py --fp dataset/solomon-100-original/rc208.txt --sigma 1.8 --tsig 1.5 --rho0 1 --n_vehicles 4 --n_customers 25 --output output-202402261502/rc208.4-25.json &> output-202402261502/rc208.4-25.log

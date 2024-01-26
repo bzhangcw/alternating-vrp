@@ -60,7 +60,9 @@ def create_toy_instance():
     return vrp
 
 
-def read_solomon(fp="dataset/solomon-100-original/c101.txt", n_vehicles=10, n_customers=25):
+def read_solomon(
+    fp="dataset/solomon-100-original/c101.txt", n_vehicles=10, n_customers=25
+):
     timestamp = int(time.time()).__str__()[:6]
     pkl_fp = fp + ".data_{}-{}.pkl".format(n_vehicles, timestamp)
     try:
@@ -68,7 +70,7 @@ def read_solomon(fp="dataset/solomon-100-original/c101.txt", n_vehicles=10, n_cu
             V, E, J, c, C, d, l, u, T, sl, coordinates = pickle.load(f)
     except FileNotFoundError:
         V, E, J, c, C, d, l, u, T, sl, coordinates = io_solomon.data_loader(
-            fp, n_vehicles=n_vehicles,n_customers=n_customers
+            fp, n_vehicles=n_vehicles, n_customers=n_customers
         )
         with open(fp + ".data_{}-{}.pkl".format(n_vehicles, timestamp), "wb") as f:
             pickle.dump((V, E, J, c, C, d, l, u, T, sl, coordinates), f)
@@ -81,12 +83,20 @@ if __name__ == "__main__":
     params_bcd = BCDParams()
     # create vrp instance
     # vrp = create_toy_instance()
-    vrp = read_solomon(fp=params_bcd.fp, n_vehicles=params_bcd.n_vehicles,n_customers=params_bcd.n_customers)
+    vrp = read_solomon(
+        fp=params_bcd.fp,
+        n_vehicles=params_bcd.n_vehicles,
+        n_customers=params_bcd.n_customers,
+    )
     vrp.create_model()
     vrp.init(get_block_data=True)
 
     # clone model for heur
-    vrp_clone = read_solomon(fp=params_bcd.fp, n_vehicles=params_bcd.n_vehicles,n_customers=params_bcd.n_customers)
+    vrp_clone = read_solomon(
+        fp=params_bcd.fp,
+        n_vehicles=params_bcd.n_vehicles,
+        n_customers=params_bcd.n_customers,
+    )
     vrp_clone.create_model()
     vrp_clone.init(get_block_data=True)
 
@@ -116,3 +126,7 @@ if __name__ == "__main__":
     # vrp.visualize(x=None)
     vrp.visualize(x=xk)
     print("*" * 50)
+
+    with open(params_bcd.args.output, "w") as fo:
+        print(json.dumps(info, indent=2))
+        json.dump(info, fo)

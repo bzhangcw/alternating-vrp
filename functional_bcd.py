@@ -194,6 +194,13 @@ class BCDParams(object):
         tau0
         """,
     )
+    parser.add_argument(
+        "--output",
+        help="""
+        output file
+        """,
+        default="output.json",
+    )
 
     def __init__(self):
         self.kappa = 0.2
@@ -999,7 +1006,7 @@ def optimize(bcdpar: BCDParams, vrps: Tuple[VRP, VRP], route: Route):
         # update dual variables
         ###########################################
         # lbd += rhol * (_Ax - b)
-        alphak = 20 / (math.sqrt(2) * eps_pfeas_Axb)
+        alphak = 20 / (math.sqrt(2) * eps_pfeas_Axb + 1e-8)
         lbd += alphak * (_Ax - b)
         if np.linalg.norm(_Ax - b) <= etax:
             etax = min(max(etax / rhol**rhofact1, ctol), 1)
@@ -1055,5 +1062,4 @@ def optimize(bcdpar: BCDParams, vrps: Tuple[VRP, VRP], route: Route):
         oracle_calls=timers["count"].to_dict(),
         oracle_avgtm=timers["mean"].to_dict(),
     )
-    print(json.dumps(info, indent=2))
     return xk, info
