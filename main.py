@@ -60,17 +60,17 @@ def create_toy_instance():
     return vrp
 
 
-def read_solomon(fp="dataset/data/SolomonDataset_v2/r101-25", n_vehicles=10):
+def read_solomon(fp="dataset/solomon-100-original/c101.txt", n_vehicles=10, n_customers=25):
     timestamp = int(time.time()).__str__()[:6]
-    pkl_fp = fp + "/data_{}-{}.pkl".format(n_vehicles, timestamp)
+    pkl_fp = fp + ".data_{}-{}.pkl".format(n_vehicles, timestamp)
     try:
         with open(pkl_fp, "rb") as f:
             V, E, J, c, C, d, l, u, T, sl, coordinates = pickle.load(f)
     except FileNotFoundError:
         V, E, J, c, C, d, l, u, T, sl, coordinates = io_solomon.data_loader(
-            fp, n_vehicles=n_vehicles
+            fp, n_vehicles=n_vehicles,n_customers=n_customers
         )
-        with open(fp + "/data_{}-{}.pkl".format(n_vehicles, timestamp), "wb") as f:
+        with open(fp + ".data_{}-{}.pkl".format(n_vehicles, timestamp), "wb") as f:
             pickle.dump((V, E, J, c, C, d, l, u, T, sl, coordinates), f)
 
     vrp = VRP(V, E, J, c, C, d, l, u, T, sl, coordinates)
@@ -81,12 +81,12 @@ if __name__ == "__main__":
     params_bcd = BCDParams()
     # create vrp instance
     # vrp = create_toy_instance()
-    vrp = read_solomon(fp=params_bcd.fp, n_vehicles=params_bcd.n_vehicles)
+    vrp = read_solomon(fp=params_bcd.fp, n_vehicles=params_bcd.n_vehicles,n_customers=params_bcd.n_customers)
     vrp.create_model()
     vrp.init(get_block_data=True)
 
     # clone model for heur
-    vrp_clone = read_solomon(fp=params_bcd.fp, n_vehicles=params_bcd.n_vehicles)
+    vrp_clone = read_solomon(fp=params_bcd.fp, n_vehicles=params_bcd.n_vehicles,n_customers=params_bcd.n_customers)
     vrp_clone.create_model()
     vrp_clone.init(get_block_data=True)
 
@@ -109,7 +109,7 @@ if __name__ == "__main__":
     # # create routing solver
     route = Route(vrp)
     #
-    xk = optimize(bcdpar=params_bcd, vrps=(vrp, vrp_clone), route=route)
+    xk, info = optimize(bcdpar=params_bcd, vrps=(vrp, vrp_clone), route=route)
     # vrp.visualize(x=xk)
 
     print("*" * 50)

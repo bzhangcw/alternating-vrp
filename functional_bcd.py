@@ -13,6 +13,7 @@ functional interface module for bcd
 % - indefinite proximal BCD which includes an extrapolation step.
 % - restart utilities
 """
+import json
 import argparse
 import functools
 from typing import Dict, Tuple
@@ -24,6 +25,7 @@ import tqdm
 from gurobipy import *
 import networkx as nx
 
+import util
 from route import Route
 
 from enum import IntEnum
@@ -139,7 +141,7 @@ class BCDParams(object):
     parser.add_argument(
         "--fp",
         type=str,
-        default="dataset/data/SolomonDataset_v2/rc101-50r",
+        default="dataset/solomon-100-original/r101.txt",
         help="""data path""",
     )
     parser.add_argument(
@@ -150,6 +152,16 @@ class BCDParams(object):
         number of vehicles used
         """,
     )
+
+    parser.add_argument(
+        "--n_customers",
+        type=int,
+        default=25,
+        help="""
+          number of customers used in the data
+        """,
+    )
+
     parser.add_argument(
         "--sigma",
         type=float,
@@ -228,6 +240,7 @@ class BCDParams(object):
         self.fp = self.args.fp
         self.time_limit = self.args.time_limit
         self.n_vehicles = self.args.n_vehicles
+        self.n_customers = self.args.n_customers
         self.sigma = self.args.sigma
         self.tsig = self.args.tsig
         self.rho0 = self.args.rho0
@@ -1029,4 +1042,18 @@ def optimize(bcdpar: BCDParams, vrps: Tuple[VRP, VRP], route: Route):
             # rhol =rhol/tsig
             break
 
-    return xk
+    timers, _ = util.visualize_timers()
+    info = dict(
+        k=k,
+        t=_iter_time,
+        f=cx,
+        f_h=ub_bst,
+        lb=lobj,
+        eps_axb=eps_pfeas_Axb,
+        eps_cap=eps_pfeas_cap,
+        eps_fixpoint=eps_fp,
+        oracle_calls=timers["count"].to_dict(),
+        oracle_avgtm=timers["mean"].to_dict(),
+    )
+    print(json.dumps(info, indent=2))
+    return xk, info

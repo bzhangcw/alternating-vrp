@@ -1,6 +1,10 @@
+import itertools
 import math
 import csv
 import copy
+import re
+
+import pandas as pd
 import xlrd
 import time
 
@@ -46,7 +50,9 @@ class Agent:
         self.capacity = 0
 
 
+# @note: shit from the trb paper, do not use this further.
 def g_ReadInputData(path, n_vehicles=10):
+    # shit from the trb paper
     # the parameter need to be changed
     print(f"using n-vehicles: {n_vehicles}")
     vehicle_fleet_size = n_vehicles
@@ -212,8 +218,38 @@ def g_ReadInputData(path, n_vehicles=10):
     return V, E, J, c, C, d, l, u, T, sl, coordinates
 
 
-def data_loader(path="dataset/data/SolomonDataset_v2/C101-100", n_vehicles=10):
-    return g_ReadInputData(path, n_vehicles)
+def data_loader(path="dataset/solomon-100-original/c101.txt", n_vehicles=10, **kwargs):
+    # d1 =  g_ReadInputData(path, n_vehicles)
+    d2 = read_solomon(path, n_vehicles, **kwargs)
+    return d2
+
+
+def read_solomon(
+    path="dataset/solomon-100-original/c101.txt", n_vehicles=10, n_customers=25
+):
+    with open(path, "r") as fin:
+        lines = fin.readlines()
+        C = eval(re.findall("\d+", lines[4])[-1])
+        data = [[eval(l) for l in re.findall("\d+", line)] for line in lines[9:]]
+        header = ["id", "x", "y", "c", "l", "u", "sl"]
+        df = pd.DataFrame(data, columns=header)
+
+    c = df["c"][: n_customers + 1].tolist()
+    l = df["l"][: n_customers + 1].tolist()
+    u = df["u"][: n_customers + 1].tolist()
+    sl = df["sl"][: n_customers + 1].tolist()
+    V = df["id"][: n_customers + 1].tolist()
+    E = [(i, j) for (i, j) in list(itertools.product(V, V)) if i != j]
+    d = {
+        (v1, v2): np.sqrt(
+            (df["x"][v1] - df["x"][v2]) ** 2 + (df["y"][v1] - df["y"][v2]) ** 2
+        )
+        for v1, v2 in E
+    }
+    T = {k: int(v) for k, v in d.items()}
+    coordinates = list(zip(df["x"], df["y"]))
+    J = list(range(n_vehicles))
+    return V, E, J, c, C, d, l, u, T, sl, coordinates
 
 
 if __name__ == "__main__":

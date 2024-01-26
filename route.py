@@ -1,3 +1,4 @@
+import util
 from vrp import *
 from gurobipy import *
 from itertools import combinations
@@ -138,6 +139,7 @@ class Route:
             i = nx
         return nodes[:-1], edges
 
+
     def solve_primal_by_tsp(self, c, mode=0):
         """
         solve the primal problem using the cost vector c
@@ -148,50 +150,51 @@ class Route:
             2 - C-TSP-TW
         :return:
         """
-        if not self.bool_mip_built:
-            self.create_model()
-            self.add_vars()
-            self.add_constrs(mode)
+        with util.TimerContext(1, "route_tsp"):
+            if not self.bool_mip_built:
+                self.create_model()
+                self.add_vars()
+                self.add_constrs(mode)
 
-        self.m.setObjective(
-            quicksum(c[idx] * self.x[s, t] for idx, (s, t) in enumerate(self.vrp.E)),
-            GRB.MINIMIZE,
-        )
-        self.m.Params.lazyConstraints = 1
-        # self.m.Params.MIPGap = 0.1  # 设置gap为10%
-        # @note: keep for dbg
-        # xx = np.array(
-        #             [v for k, v in self.m.getAttr("x", self.x).items()]
-        #         ).reshape((-1, 1))
-        # e = xx.nonzero()[0]
-        # edges = [vrp.E[ee] for ee in e]
-        # edges_dict = dict(edges)
-        # edges_dict
+            self.m.setObjective(
+                quicksum(c[idx] * self.x[s, t] for idx, (s, t) in enumerate(self.vrp.E)),
+                GRB.MINIMIZE,
+            )
+            self.m.Params.lazyConstraints = 1
+            # self.m.Params.MIPGap = 0.1  # 设置gap为10%
+            # @note: keep for dbg
+            # xx = np.array(
+            #             [v for k, v in self.m.getAttr("x", self.x).items()]
+            #         ).reshape((-1, 1))
+            # e = xx.nonzero()[0]
+            # edges = [vrp.E[ee] for ee in e]
+            # edges_dict = dict(edges)
+            # edges_dict
 
-        self.m.optimize(lambda model, where: subtourelim(model, where, self.vrp.p))
-        xr = np.array([v for k, v in self.m.getAttr("x", self.x).items()]).reshape(
-            (-1, 1)
-        )
+            self.m.optimize(lambda model, where: subtourelim(model, where, self.vrp.p))
+            xr = np.array([v for k, v in self.m.getAttr("x", self.x).items()]).reshape(
+                (-1, 1)
+            )
 
-        # @note, nonlazy mode, for dbg; do not remove
-        # bool_terminate = False
-        # while not bool_terminate:
-        #     self.m.optimize(
-        #         # lambda model, where: subtourelim(model, where, self.vrp.p)
-        #     )
-        #     xr = np.array(
-        #         [v for k, v in self.m.getAttr("x", self.x).items()]
-        #     ).reshape((-1, 1))
-        #     nodes, edges = self.visualize(xr)
-        #     if len(nodes) < len(edges):
-        #         cc = list(permutations(nodes, 2))
-        #         print(cc)
-        #         _ = self.m.addConstr(
-        #             quicksum(self.x[i, j] for i, j in cc)
-        #             <= len(nodes) - 1
-        #         )
-        #         continue
-        return xr
+            # @note, nonlazy mode, for dbg; do not remove
+            # bool_terminate = False
+            # while not bool_terminate:
+            #     self.m.optimize(
+            #         # lambda model, where: subtourelim(model, where, self.vrp.p)
+            #     )
+            #     xr = np.array(
+            #         [v for k, v in self.m.getAttr("x", self.x).items()]
+            #     ).reshape((-1, 1))
+            #     nodes, edges = self.visualize(xr)
+            #     if len(nodes) < len(edges):
+            #         cc = list(permutations(nodes, 2))
+            #         print(cc)
+            #         _ = self.m.addConstr(
+            #             quicksum(self.x[i, j] for i, j in cc)
+            #             <= len(nodes) - 1
+            #         )
+            #         continue
+            return xr
 
     def solve_primal_by_assignment(self, c, mode=0):
         """
@@ -203,34 +206,35 @@ class Route:
             2 - C-TSP-TW
         :return:
         """
-        if not self.bool_mip_built:
-            self.create_model()
-            self.add_vars()
-            self.add_constrs(mode)
+        with util.TimerContext(1, "route_assignment"):
+            if not self.bool_mip_built:
+                self.create_model()
+                self.add_vars()
+                self.add_constrs(mode)
 
-        self.m.setObjective(
-            quicksum(c[idx] * self.x[s, t] for idx, (s, t) in enumerate(self.vrp.E)),
-            GRB.MINIMIZE,
-        )
-        self.m.optimize()
-        return np.array([v for k, v in self.m.getAttr("x", self.x).items()]).reshape(
-            (-1, 1)
-        )
+            self.m.setObjective(
+                quicksum(c[idx] * self.x[s, t] for idx, (s, t) in enumerate(self.vrp.E)),
+                GRB.MINIMIZE,
+            )
+            self.m.optimize()
+            return np.array([v for k, v in self.m.getAttr("x", self.x).items()]).reshape(
+                (-1, 1)
+            )
 
     def solve_primal_by_lkh(self, c, *args, **kwargs):
         import elkai
+        with util.TimerContext(1, "route_lkh"):
+            self.cost_mat.data = c
+            _mat = self.cost_mat.todense()
+            _route = elkai.solve_float_matrix((_mat + _mat.T).tolist())
+            _route.append(0)
+            _edges = list(zip(_route[:-1], _route[1:]))
+            _sol = {k: 1 for k in _edges}
+            x = np.fromiter((_sol.get(k, 0) for k in self.vrp.E), dtype=np.int8).reshape(
+                (-1, 1)
+            )
 
-        self.cost_mat.data = c
-        _mat = self.cost_mat.todense()
-        _route = elkai.solve_float_matrix((_mat + _mat.T).tolist())
-        _route.append(0)
-        _edges = list(zip(_route[:-1], _route[1:]))
-        _sol = {k: 1 for k in _edges}
-        x = np.fromiter((_sol.get(k, 0) for k in self.vrp.E), dtype=np.int8).reshape(
-            (-1, 1)
-        )
-
-        pass
+            pass
 
 
 if __name__ == "__main__":

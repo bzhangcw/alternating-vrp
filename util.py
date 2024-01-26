@@ -46,12 +46,45 @@ _grb_logger.setLevel(logging.ERROR)
 logFormatter = logging.Formatter("%(asctime)s: %(message)s")
 logger = logging.getLogger("railway")
 logger.setLevel(logging.INFO)
+import pandas as pd
 
 # consoleHandler = logging.StreamHandler(sys.stdout)
 # consoleHandler.setFormatter(logFormatter)
 # logger.addHandler(consoleHandler)
 
 ff = open("tmp.log", "w")
+
+import time
+
+global_timers = []
+
+
+class TimerContext:
+    def __init__(self, k, name):
+        self.k = k
+        self.name = name
+
+    def __enter__(self):
+        self.start = time.time()
+        return self
+
+    def __exit__(self, *args):
+        self.end = time.time()
+        self.interval = self.end - self.start
+        global_timers.append([self.k, self.name, self.interval])
+
+
+def visualize_timers():
+    df = pd.DataFrame(data=global_timers, columns=["k", "name", "time"])
+    dfa = df.groupby("name")["time"].describe().reset_index()
+    print(
+        f"""
+=== describing time statistics ===
+{dfa}
+    """
+    )
+
+    return dfa.set_index("name"), df
 
 
 # Callback - use lazy constraints to eliminate sub-tours
