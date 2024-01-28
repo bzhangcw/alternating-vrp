@@ -267,7 +267,7 @@ class VRP:
             for j in self.J
         )
         self.ttd = self.m.addConstrs(
-            (self.w0[j] - self.w[self.p, j]) - (self.w0[k] - self.w[self.p, k])<= max_diff for s in self.V for j in self.J for k in self.J if j < k)
+            (self.w0[j] - self.w[self.p, j]) - (self.w0[k] - self.w[self.p, k])<= max_diff for s in self.V for j in self.J for k in self.J if j != k)
 
     def add_obj(self):
         self.m.setObjective(
