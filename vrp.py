@@ -165,6 +165,39 @@ class VRP:
             ),
             **name_prefix("time_window"),
         )
+
+        # create 2 type of redundant constraints, these cons should NOT change the optimal solution
+        # constraint on minimum local time window, i.e. the time of node i minus the time of node j (j is the predecessor of i)
+        T_s = {}
+        for s, t in self.E:
+            T_s.setdefault(s, list())
+            if t != self.p:
+                T_s[s].append(self.T[s, t] + self.service_time[s])
+
+        lb = min([min(v) for k, v in T_s.items()])  # implied by the time window constraint
+        # TODO: change lb to larger values to make sure it is not REDUNDANT.
+        # local time window
+        self.ltw = self.m.addConstrs(
+            (
+                self.w[s, j]
+                + lb
+                - M * (1 - self.x[s, t, j])
+                <= self.w[t, j]
+                for s, t in self.E
+                if t != self.p
+                for j in self.J
+            ),
+            **name_prefix("local_time_window_lb"),
+        )
+
+        # maximum total travel time for all vehicles, it shouldn't be larger than sum of largest travel time for each node
+        # TODO: change max_travel_time to smaller values to make sure it is not REDUNDANT.
+        T_s_max = {k: max(v) for k, v in T_s.items()}
+        n_edges = len(self.V_0) + len(self.J)
+        # get max n_edges from T_s
+        max_travel_time = sum(sorted(T_s_max.values())[-n_edges:])
+        self.mtt = self.m.addConstrs(self.w[s, j] - self.w[self.p, j] <= max_travel_time for s in self.V for j in self.J)
+
         #
         # 啊啊啊这块真的要哭了，搞了好久，终于让我知道了bug在哪，这里要注意t != self.p(0)，因为初始点和终点都是w0,但是不能让这个时间为两个数，
         # 所以这块不用考虑回到depot的问题，因为所有的车都可以满足这个回到depot的时间
