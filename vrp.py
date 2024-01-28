@@ -166,7 +166,32 @@ class VRP:
             **name_prefix("time_window"),
         )
 
-        # create 2 type of redundant constraints, these cons should NOT change the optimal solution
+        #
+        # 啊啊啊这块真的要哭了，搞了好久，终于让我知道了bug在哪，这里要注意t != self.p(0)，因为初始点和终点都是w0,但是不能让这个时间为两个数，
+        # 所以这块不用考虑回到depot的问题，因为所有的车都可以满足这个回到depot的时间
+
+        # self.tw = self.m.addConstrs((self.w[s, j] >= self.a[s] for s in self.V for j in self.J), **name_prefix("tw_lower"))
+        # self.tw.update({self.m.addConstrs((self.w[s, j] <= self.b[s] for s in self.V for j in self.J), **name_prefix("tw_upper"))})
+        # self.tw.update({
+        #     t: self.m.addConstr(
+        #         self.w[s,j] + self.T[s, t] - self.M * (1 - self.x[s, t, j]) <= self.w[t,j],
+        #         name=f"tw_b({s},{t},{j})"
+        #     )
+        #     for s in self.V for t in self.out_neighbours(s) for j in self.J if s != t and t != self.p and self.T[s, t] > 0
+        # })
+
+        # self.tw = self.m.addConstrs((quicksum(
+        #     self.w[s,j]- self.w[t,j] + T[s,t] - 1e3 * (1-self.x[s, t, j]) for s in self.V for t in self.out_neighbours(s) if s != t and t != self.p)
+        #                    <=
+        #                    0
+        #                    for j in self.J),
+        #                   **name_prefix("timewindow"))
+        # for s in self.V:
+        #     # assumption: service starts at 9:00 AM, 9 == 0 minutes, each hour after 9 is 60 minutes plus previous hours
+        #     self.m.addConstr(self.w[s,j] >= self.a[s])  # service should start after the earliest service start time
+        #     self.m.addConstr(self.w[s,j] <= self.b[s])  # service can't be started after the latest service start time
+
+        # create 3 type of redundant constraints, these cons should NOT change the optimal solution
         # constraint on minimum local time window, i.e. the time of node i minus the time of node j (j is the predecessor of i)
         T_s = {}
         for s, t in self.E:
@@ -206,6 +231,8 @@ class VRP:
         # maximum total travel time for all vehicles, it shouldn't be larger than sum of largest travel time for each node
         # ortools can model it, but based on experiments, we observe that it forbids ortools to find the optimal solution,
         # even though it is redundant.
+        # if change the constraints to limit the total travel time of any 2 vehicles, just sum the 2 constraints below.
+        # ortools will also hard to
         # TODO: change max_travel_time to smaller values to make sure it is not REDUNDANT.
         T_s_max = {k: max(v) for k, v in T_s.items()}
         n_edges = len(self.V_0) + len(self.J)
@@ -213,30 +240,34 @@ class VRP:
         max_travel_time = sum(sorted(T_s_max.values())[-n_edges:])
         self.mtt = self.m.addConstrs(self.w[s, j] - self.w[self.p, j] <= max_travel_time for s in self.V for j in self.J)
 
-        #
-        # 啊啊啊这块真的要哭了，搞了好久，终于让我知道了bug在哪，这里要注意t != self.p(0)，因为初始点和终点都是w0,但是不能让这个时间为两个数，
-        # 所以这块不用考虑回到depot的问题，因为所有的车都可以满足这个回到depot的时间
-
-        # self.tw = self.m.addConstrs((self.w[s, j] >= self.a[s] for s in self.V for j in self.J), **name_prefix("tw_lower"))
-        # self.tw.update({self.m.addConstrs((self.w[s, j] <= self.b[s] for s in self.V for j in self.J), **name_prefix("tw_upper"))})
-        # self.tw.update({
-        #     t: self.m.addConstr(
-        #         self.w[s,j] + self.T[s, t] - self.M * (1 - self.x[s, t, j]) <= self.w[t,j],
-        #         name=f"tw_b({s},{t},{j})"
-        #     )
-        #     for s in self.V for t in self.out_neighbours(s) for j in self.J if s != t and t != self.p and self.T[s, t] > 0
-        # })
-
-        # self.tw = self.m.addConstrs((quicksum(
-        #     self.w[s,j]- self.w[t,j] + T[s,t] - 1e3 * (1-self.x[s, t, j]) for s in self.V for t in self.out_neighbours(s) if s != t and t != self.p)
-        #                    <=
-        #                    0
-        #                    for j in self.J),
-        #                   **name_prefix("timewindow"))
-        # for s in self.V:
-        #     # assumption: service starts at 9:00 AM, 9 == 0 minutes, each hour after 9 is 60 minutes plus previous hours
-        #     self.m.addConstr(self.w[s,j] >= self.a[s])  # service should start after the earliest service start time
-        #     self.m.addConstr(self.w[s,j] <= self.b[s])  # service can't be started after the latest service start time
+        # tarvel time difference of 2 routes
+        # TODO: this should also be redundant, we can only add single pair (j, k) among these constraints, this will easily break ortools
+        max_diff = 300
+        c_max = {k: max(v) for k, v in T_s.items()}
+        c_min = {k: min(v) for k, v in T_s.items()}
+        self.w0 = self.m.addVars(self.J, vtype=CONST.INTEGER, **name_prefix("w0"))  # the arrival time of vehicle
+        self.m.addConstrs(
+            self.w[s, j]
+            + self.T[s, t]
+            + self.service_time[s]
+            - M * (1 - self.x[s, t, j])
+            <= self.w0[j]
+            for s, t in self.E
+            if t == self.p
+            for j in self.J
+        )
+        self.m.addConstrs(
+            self.w[s, j]
+            + self.T[s, t]
+            + self.service_time[s]
+            + M * (1 - self.x[s, t, j])
+            >= self.w0[j]
+            for s, t in self.E
+            if t == self.p
+            for j in self.J
+        )
+        self.ttd = self.m.addConstrs(
+            (self.w0[j] - self.w[self.p, j]) - (self.w0[k] - self.w[self.p, k])<= max_diff for s in self.V for j in self.J for k in self.J if j < k)
 
     def add_obj(self):
         self.m.setObjective(
