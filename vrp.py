@@ -174,7 +174,8 @@ class VRP:
             if t != self.p:
                 T_s[s].append(self.T[s, t] + self.service_time[s])
 
-        lb = min([min(v) for k, v in T_s.items()])  # implied by the time window constraint
+        lb = min([min(v) for k, v in T_s.items()])  # implied by the time window constraint， change lb to lb[s, j] to make ortools can't model it
+        ub = 3 * max([max(v) for k, v in T_s.items()])  # same as lb, ortools can model it if lb = lb[j], but not lb = lb[s, j]
         # TODO: change lb to larger values to make sure it is not REDUNDANT.
         # local time window
         self.ltw = self.m.addConstrs(
@@ -189,8 +190,22 @@ class VRP:
             ),
             **name_prefix("local_time_window_lb"),
         )
+        self.ltw |= self.m.addConstrs(
+            (
+                self.w[s, j]
+                + ub
+                + M * (1 - self.x[s, t, j])
+                >= self.w[t, j]
+                for s, t in self.E
+                if t != self.p
+                for j in self.J
+            ),
+            **name_prefix("local_time_window_ub"),
+        )
 
         # maximum total travel time for all vehicles, it shouldn't be larger than sum of largest travel time for each node
+        # ortools can model it, but based on experiments, we observe that it forbids ortools to find the optimal solution,
+        # even though it is redundant.
         # TODO: change max_travel_time to smaller values to make sure it is not REDUNDANT.
         T_s_max = {k: max(v) for k, v in T_s.items()}
         n_edges = len(self.V_0) + len(self.J)
