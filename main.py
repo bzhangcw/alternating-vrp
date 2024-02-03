@@ -83,13 +83,19 @@ if __name__ == "__main__":
     params_bcd = BCDParams()
     # create vrp instance
     # vrp = create_toy_instance()
-    vrp = read_solomon(
-        fp=params_bcd.fp,
-        n_vehicles=params_bcd.n_vehicles,
-        n_customers=params_bcd.n_customers,
-    )
-    vrp.create_model()
-    vrp.init(get_block_data=True)
+    data_triplet = [(25, 3), (50, 5), (100, 10)]
+    for f in os.listdir("dataset/solomon-100-original"):
+        if f.endswith(".txt") and f.startswith("c10"):
+            fp = os.path.join("dataset/solomon-100-original", f)
+            for n_customers, n_vehicles in data_triplet:
+                print(fp)
+                vrp = read_solomon(
+                    fp=params_bcd.fp,
+                    n_vehicles=n_vehicles,
+                    n_customers=n_customers,
+                )
+                vrp.create_model()
+                vrp.init(get_block_data=False)
 
     # clone model for heur
     vrp_clone = read_solomon(

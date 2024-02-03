@@ -237,7 +237,8 @@ class VRP:
         T_s_max = {k: max(v) for k, v in T_s.items()}
         n_edges = len(self.V_0) + len(self.J)
         # get max n_edges from T_s
-        max_travel_time = sum(sorted(T_s_max.values())[-n_edges:])
+        max_travel_time = 1200
+        print("max_travel_time", max_travel_time)
         self.mtt = self.m.addConstrs(self.w[s, j] - self.w[self.p, j] <= max_travel_time for s in self.V for j in self.J)
 
         # tarvel time difference of 2 routes
