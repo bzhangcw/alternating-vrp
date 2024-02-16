@@ -1,16 +1,15 @@
+import copy
+import csv
 import itertools
 import math
-import csv
-import copy
 import re
-
-import pandas as pd
-import xlrd
 import time
 
-import scipy
-from scipy.optimize import linprog
 import numpy as np
+import pandas as pd
+import scipy
+import xlrd
+from scipy.optimize import linprog
 
 
 class Node:

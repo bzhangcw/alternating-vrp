@@ -1,6 +1,7 @@
 """
 utility modules, include utility for subgradient method.
 """
+
 import datetime
 import logging
 import os
@@ -8,7 +9,7 @@ import sys
 from collections import defaultdict
 from itertools import combinations, permutations
 
-from gurobipy import GRB, tuplelist, quicksum
+from gurobipy import GRB, quicksum, tuplelist
 
 ##############################
 # DEFAULTS
@@ -48,43 +49,13 @@ logger = logging.getLogger("railway")
 logger.setLevel(logging.INFO)
 import pandas as pd
 
-# consoleHandler = logging.StreamHandler(sys.stdout)
-# consoleHandler.setFormatter(logFormatter)
-# logger.addHandler(consoleHandler)
+consoleHandler = logging.StreamHandler(sys.stdout)
+consoleHandler.setFormatter(logFormatter)
+logger.addHandler(consoleHandler)
 
 ff = open("tmp.log", "w")
 
 import time
-
-global_timers = []
-
-
-class TimerContext:
-    def __init__(self, k, name):
-        self.k = k
-        self.name = name
-
-    def __enter__(self):
-        self.start = time.time()
-        return self
-
-    def __exit__(self, *args):
-        self.end = time.time()
-        self.interval = self.end - self.start
-        global_timers.append([self.k, self.name, self.interval])
-
-
-def visualize_timers():
-    df = pd.DataFrame(data=global_timers, columns=["k", "name", "time"])
-    dfa = df.groupby("name")["time"].describe().reset_index()
-    print(
-        f"""
-=== describing time statistics ===
-{dfa}
-    """
-    )
-
-    return dfa.set_index("name"), df
 
 
 # Callback - use lazy constraints to eliminate sub-tours
@@ -111,8 +82,6 @@ def subtourelim(model, where, depot):
 
 
 # Given a tuplelist of edges, find the shortest subtour
-
-
 def subtour(edges, depot):
     V = list(set([i for i, j in edges] + [j for i, j in edges]))
     unvisited = V[:]
@@ -229,3 +198,43 @@ class SysParams(object):
         logger.info(
             f"size: #train,#station,#timespan,#iter_max: {self.train_size, self.station_size, self.time_span, self.iter_max}"
         )
+
+
+global_timers = []
+
+
+class TimerContext:
+    def __init__(self, k, name, logging=True):
+        self.k = k
+        self.name = name
+        self.logging = logging
+
+    def __enter__(self):
+        if self.logging:
+            logger.info(f"task {self.name} started")
+        self.start = time.time()
+        return self
+
+    def __exit__(
+        self,
+        *arg,
+    ):
+        self.end = time.time()
+        self.interval = self.end - self.start
+        global_timers.append([self.k, self.name, self.interval])
+        if self.logging:
+            logger.info(f"task {self.name} takes {self.interval:.2f} seconds")
+
+
+def visualize_timers():
+    pd.set_option("display.max_columns", None)
+    df = pd.DataFrame(data=global_timers, columns=["k", "name", "time"])
+    dfa = df.groupby("name")["time"].describe().reset_index()
+    print(
+        f"""
+=== describing time statistics ===
+{dfa}
+    """
+    )
+
+    return dfa.set_index("name"), df

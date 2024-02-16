@@ -13,24 +13,24 @@ functional interface module for bcd
 % - indefinite proximal BCD which includes an extrapolation step.
 % - restart utilities
 """
-import json
+
 import argparse
 import functools
-from typing import Dict, Tuple
+import json
 import time
+from enum import IntEnum
+from typing import Dict, Tuple
+
+import networkx as nx
 import numpy as np
 import scipy
 import scipy.sparse.linalg as ssl
 import tqdm
 from gurobipy import *
-import networkx as nx
 
 import util
-from route import Route
-
-from enum import IntEnum
-
 from heur_seq import heur_seq
+from route import Route
 from vrp import VRP
 
 
@@ -637,14 +637,14 @@ def optimize(bcdpar: BCDParams, vrps: Tuple[VRP, VRP], route: Route):
         # inner iteration
         for it in range(bcdpar.dual_linearize_max if bcdpar.dual_linearize else 1):
             if (time.time() - start_time) > bcdpar.time_limit:
-                exit()  # todo
+                break
             _d_it = []
 
             for tauk in range(20):
+                if (time.time() - start_time) > bcdpar.time_limit:
+                    break
                 al_func = al_func_new
                 for idx in range(nblock):
-                    if (time.time() - start_time) > bcdpar.time_limit:
-                        exit()  # todo
                     ############################################
                     # update gradient
                     ############################################
@@ -1038,7 +1038,9 @@ def optimize(bcdpar: BCDParams, vrps: Tuple[VRP, VRP], route: Route):
 
         bcdpar.iter += 1
 
-        if eps_pfeas == 0 and eps_fp < 1e-4:
+        if ((time.time() - start_time) > bcdpar.time_limit) or (
+            eps_pfeas == 0 and eps_fp < 1e-4
+        ):
             # rhol = 1
             # lbd =  lbd_old
             # xk = [np.zeros((n, 1)) for _ in A]
@@ -1049,7 +1051,7 @@ def optimize(bcdpar: BCDParams, vrps: Tuple[VRP, VRP], route: Route):
             # rhol =rhol/tsig
             break
 
-    timers, _ = util.visualize_timers()
+    timers, *_ = util.visualize_timers()
     info = dict(
         k=k,
         t=_iter_time,

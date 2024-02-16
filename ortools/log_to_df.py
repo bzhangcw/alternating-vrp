@@ -1,8 +1,10 @@
 import re
+import sys
 import pandas as pd
 
 # Open the file in read mode
-name = "c_mtt"
+# name = "c_mtt"
+name = sys.argv[1]
 with open(f'{name}.log', 'r') as file:
     lines = file.readlines()
 

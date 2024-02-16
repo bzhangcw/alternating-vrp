@@ -1,12 +1,14 @@
-from vrp import *
-from itertools import combinations
-import io_solomon
-import pickle
-import dill
 import os
-import cloudpickle
-from functional_bcd import *
+import pickle
 import time
+from itertools import combinations
+
+import cloudpickle
+import dill
+
+import io_solomon
+from functional_bcd import *
+from vrp import *
 
 
 def create_toy_instance():

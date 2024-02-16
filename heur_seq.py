@@ -1,5 +1,6 @@
 import numpy as np
-from gurobipy import quicksum, GRB, tuplelist
+from gurobipy import GRB, quicksum, tuplelist
+
 from vrp import name_prefix
 
 
