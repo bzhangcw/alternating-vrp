@@ -31,12 +31,15 @@ if __name__ == "__main__":
     dirname = arg.dirname
 
     filenames = [f for f in os.listdir(dirname) if f.endswith(".txt")]
-
-    data_triplets = [(25, 3), (50, 5), (100, 10)]
-    mtt = {(25, 3): 1200, (50, 5): 1200, (100, 10): 1200}
+    # c1
+    # data_triplets = [(25, 3), (50, 5), (100, 10)]
+    # mtt = {(25, 3): 1200, (50, 5): 1200, (100, 10): 1200}
+    # c2
+    data_triplets = [(100, 3)]
+    mtt = {(100, 3): 1200}
     time_precision_scaler = 1000
     for filename in filenames:
-        if not filename.startswith("c1"):
+        if not filename.startswith("c2"):
             continue
         for n_customers, n_vehicles in data_triplets:
             print(

@@ -10,15 +10,15 @@ fi
 
 # vehicles, customers
 # for c100
-scales=(
-  "3,25"
-  "5,50"
-  "10,100"
-)
-# for c2
 # scales=(
-#   "3,100"
+#   "3,25"
+#   "5,50"
+#   "10,100"
 # )
+# for c2
+scales=(
+  "3,100"
+)
 
 for size in $scales; do
   IFS=',' read nv nc <<< "${size}"
