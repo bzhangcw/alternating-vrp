@@ -1,3 +1,4 @@
+import multiprocessing
 import os
 import pickle
 import time
@@ -5,6 +6,8 @@ from itertools import combinations
 
 import cloudpickle
 import dill
+import pandas as pd
+from tqdm import tqdm
 
 import io_solomon
 from functional_bcd import *
@@ -85,50 +88,42 @@ if __name__ == "__main__":
     params_bcd = BCDParams()
     # create vrp instance
     # vrp = create_toy_instance()
-    vrp = read_solomon(
-        fp=params_bcd.fp,
-        n_vehicles=params_bcd.n_vehicles,
-        n_customers=params_bcd.n_customers,
-    )
-    vrp.create_model()
-    vrp.init(get_block_data=True)
+    # read solomon results
 
-    # clone model for heur
-    vrp_clone = None
-    # vrp_clone = read_solomon(
-    #     fp=params_bcd.fp,
-    #     n_vehicles=params_bcd.n_vehicles,
-    #     n_customers=params_bcd.n_customers,
-    # )
-    # vrp_clone.create_model()
-    # vrp_clone.init(get_block_data=True)
-
-    print(len(vrp.block_data))
-    print(len(vrp.block_data["A"]))
-    vrp.m.write("vrp.lp")
-    start_time = time.time()
-    vrp.m.Params.SolutionLimit = 1000000
-    vrp.m.Params.PoolSearchMode = 2
-    seed = 1234
-    vrp.m.setParam("Seed", seed)
-    vrp.m.Params.TimeLimit = params_bcd.time_limit
-    # vrp.solve()
-    # print('Gurobi Running time: %s Seconds' % (time.time() - start_time))
-    # vrp.visualize(x=None)
-    # vrp.m.write("vrp.sol")
-    # print(vrp.m.objVal)
-
-    # create routing solver
-    route = Route(vrp)
-    #
-    xk, info = optimize(bcdpar=params_bcd, vrps=(vrp, vrp_clone), route=route)
-    # vrp.visualize(x=xk)
-
-    print("*" * 50)
-    # vrp.visualize(x=None)
-    vrp.visualize(x=xk)
-    print("*" * 50)
-
-    with open(params_bcd.args.output, "w") as fo:
-        print(json.dumps(info, indent=2))
-        json.dump(info, fo)
+    solo_res = pd.read_csv("dataset/solomon-results.csv")
+    grb_res = pd.DataFrame(columns=["Problem", "NV", "Distance", "Time", "Remark"])
+    grb_res_file = "dataset/gurobi_results.csv"
+    # if exists, mv to backup
+    if os.path.exists(grb_res_file):
+        os.rename(grb_res_file, grb_res_file + ".bak")
+    # enumerate each row in the dataframe
+    for i, row in tqdm(solo_res.iterrows(), total=solo_res.shape[0]):
+        try:
+            # file name and vehicle number
+            filename, n_customer = row["Problem"].split(".")
+            n_customer = int(n_customer)
+            filename = filename.lower() + ".txt"
+            # get the file path
+            fp = "dataset/solomon-100-original/" + filename
+            # read the solomon instance
+            vrp = read_solomon(
+                fp=fp, n_vehicles=int(row["NV"]), n_customers=n_customer
+            )
+            # create the model
+            vrp.create_model()
+            vrp.init(get_block_data=False)
+            # set the time limit
+            vrp.m.Params.TimeLimit = params_bcd.time_limit
+            # solve the model
+            vrp.solve()
+            grb_row = pd.DataFrame(
+                [[row["Problem"], int(row["NV"]), vrp.m.objVal, vrp.m.Runtime, ""]],
+                columns=["Problem", "NV", "Distance", "Time", "Remark"],
+            )
+        except Exception as e:
+            grb_row = pd.DataFrame(
+                [[row["Problem"], row["NV"], np.nan, np.nan, e.__str__()]],
+                columns=["Problem", "NV", "Distance", "Time", "Remark"],
+            )
+        finally:
+            grb_row.to_csv(grb_res_file, mode="a", header=False, index=False)
