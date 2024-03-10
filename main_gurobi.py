@@ -7,7 +7,6 @@ from itertools import combinations
 import cloudpickle
 import dill
 import pandas as pd
-from tqdm import tqdm
 
 import io_solomon
 from functional_bcd import *
@@ -101,9 +100,34 @@ def process_row(args):
         vrp.create_model()
         vrp.init(get_block_data=False)
         # set the time limit
-        vrp.m.Params.TimeLimit = params_bcd.time_limit
+        vrp.m.Params.TimeLimit = 1500
         # solve the model
         vrp.solve()
+        # vrp.m.write("test.sol")
+        
+        # x = vrp.x
+        # # get cycle from x
+        # cycle = {}
+        # for idx, (s, t) in enumerate(vrp.E):
+        #     for j in vrp.J:
+        #         cycle.setdefault(j, [])
+        #         if x[s, t, j].x > 0.5:
+        #             cycle[j].append((s, t))
+                    
+        # # connect the edges in the cycle to form a list of nodes which has a cycle
+        # ordered_cycle = {}
+        # for j in cycle:
+        #     ordered_cycle[j] = [cycle[j][0][0]]
+        #     while len(ordered_cycle[j]) < len(cycle[j]):
+        #         for i, (s, t) in enumerate(cycle[j]):
+        #             if ordered_cycle[j][-1] == s:
+        #                 ordered_cycle[j].append(t)
+        #                 break
+        # w = {}
+        # for j in ordered_cycle:
+        #     cycle = ordered_cycle[j]
+        #     w[j] = [vrp.w[cycle[i], j].x for i in range(len(ordered_cycle[j]) - 1)]
+                   
         grb_row = pd.DataFrame(
             [[row["Problem"], int(row["NV"]), vrp.m.objVal, vrp.m.Runtime, ""]],
             columns=["Problem", "NV", "Distance", "Time", "Remark"],
@@ -131,7 +155,11 @@ if __name__ == "__main__":
     # cpu_count
     cpu_count = multiprocessing.cpu_count()
     
-    # Create a pool of 2 processes
-    with multiprocessing.Pool(processes=int(cpu_count / 32)) as pool:
-        # Use the pool to process the rows
-        pool.map(process_row, [(row, params_bcd, lock) for _, row in solo_res.iterrows()])
+    # assert NV is not null
+    assert solo_res["NV"].notnull().all()
+    solo_res = solo_res.sort_values("Problem")
+    
+    print(solo_res)
+    
+    for _, row in solo_res.iterrows():
+        process_row((row, params_bcd, lock))
